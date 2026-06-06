@@ -103,7 +103,7 @@
 
 Одновременно активны максимум **2 блока** (`MAX_ACTIVE_BLOCKS`). На плату — 2× 16-канальных реле-модуля.
 
-> Статус правок: смена ленты на WS2815 уже в коде. `TOTAL_BLOCKS=13` и `BLOCK_CONFIGS[]` под эту таблицу **ещё нужно вписать** в `ACTUATOR_CONFIG.h` (ждёт подтверждения).
+> Статус: ✅ всё в коде. WS2815 в LED-конфигах; `TOTAL_BLOCKS=13`, деление Mega1=1-7 / Mega2=8-13 и `BLOCK_CONFIGS[]` по этой таблице вписаны во все 13 копий `ACTUATOR_CONFIG.h`.
 
 ---
 
@@ -167,8 +167,8 @@ npm run electron:build:win
 - [ ] Спаять WS2815: DI ← GPIO, BI ↔ DI (перемычка), 12V + общий GND.
 - [ ] Прогнать `led_test` — проверить зоны/цвета (GRB).
 - [ ] Залить ESP32, прописать Wi-Fi, проверить WebServer (IP в Serial Monitor).
-- [ ] Вписать `TOTAL_BLOCKS=13` + `BLOCK_CONFIGS[]` в `ACTUATOR_CONFIG.h` (см. §3).
-- [ ] Обновить `projects.ts` + `gallery-config.ts` на 13 зон.
+- [x] `ACTUATOR_CONFIG.h` под 13 блоков (готово).
+- [x] `projects.ts` + `gallery-config.ts` на 13 зон (готово).
 - [ ] Создать папки (`node scripts/init-v2-project-folders.js`) и накидать медиа.
 - [ ] `npm run electron:build:win`, положить `media/` рядом с .exe.
 - [ ] Проверить связь UI ↔ ESP32 ↔ Mega (подъём/спуск блока).
