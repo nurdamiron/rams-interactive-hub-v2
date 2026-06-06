@@ -28,12 +28,11 @@ CRGB line5[MAX_LEDS_PER_LINE];
 CRGB line6[MAX_LEDS_PER_LINE];
 CRGB line7[MAX_LEDS_PER_LINE];
 CRGB line8[MAX_LEDS_PER_LINE];
-CRGB line9[MAX_LEDS_PER_LINE];
 
 // Указатели на массивы для удобного доступа по индексу
 CRGB* ledLines[NUM_PHYSICAL_LINES] = {
   line0, line1, line2, line3, line4,
-  line5, line6, line7, line8, line9
+  line5, line6, line7, line8
 };
 
 // ============================================================================
@@ -59,7 +58,6 @@ public:
     FastLED.addLeds<LED_TYPE, LED_PINS[6], COLOR_ORDER>(line6, LEDS_PER_LINE[6]);
     FastLED.addLeds<LED_TYPE, LED_PINS[7], COLOR_ORDER>(line7, LEDS_PER_LINE[7]);
     FastLED.addLeds<LED_TYPE, LED_PINS[8], COLOR_ORDER>(line8, LEDS_PER_LINE[8]);
-    FastLED.addLeds<LED_TYPE, LED_PINS[9], COLOR_ORDER>(line9, LEDS_PER_LINE[9]);
 
     FastLED.setBrightness(BRIGHTNESS);
     FastLED.clear();
