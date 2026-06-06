@@ -24,7 +24,7 @@
 
 # Media files (too large for git)
 /public/media
-/public/projects
+# /public/projects  -- теперь трекаем папки/фото зон в git (видео всё равно игнор по *.mp4)
 /media/
 *.mp4
 *.mov
