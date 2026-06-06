@@ -48,8 +48,8 @@ CRGB* lines[NUM_LINES] = {
   line5, line6, line7, line8, line9
 };
 
-#define LED_TYPE WS2811
-#define COLOR_ORDER RGB
+#define LED_TYPE WS2815   // 12V dual-signal (DI+BI). Если нет в FastLED — WS2812B
+#define COLOR_ORDER GRB
 #define BRIGHTNESS 180
 
 // ============================================================================

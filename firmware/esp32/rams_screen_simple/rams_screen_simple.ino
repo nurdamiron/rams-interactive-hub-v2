@@ -13,8 +13,8 @@
 // LED Configuration
 #define LED_PIN           16
 #define NUM_LEDS          200
-#define LED_TYPE          WS2811
-#define COLOR_ORDER       RGB
+#define LED_TYPE          WS2815   // 12V dual-signal (DI+BI). Нет в FastLED → WS2812B
+#define COLOR_ORDER       GRB
 #define BRIGHTNESS        180
 
 // WiFi Configuration

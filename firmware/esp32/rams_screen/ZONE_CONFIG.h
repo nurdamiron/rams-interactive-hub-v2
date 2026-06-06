@@ -10,7 +10,7 @@
  * - 15 логических зон (секторов между лучами и кругами)
  *
  * Физическое оборудование:
- * - 10 физических линий WS2811 (12V)
+ * - 9 физических линий WS2815 (12V, dual-signal DI+BI)
  * - Каждая линия на отдельном GPIO
  * - Каждая зона формируется из СЕГМЕНТОВ на разных линиях
  *
@@ -62,8 +62,10 @@ const uint16_t LEDS_PER_LINE[NUM_PHYSICAL_LINES] = {
 };
 
 // Тип светодиодов и порядок цветов
-#define LED_TYPE WS2811
-#define COLOR_ORDER RGB
+// WS2815 — 12V адресная лента с резервной линией (DI + BI). Управляем по DI.
+// Если FastLED не знает WS2815 — заменить на WS2812B (тайминги совместимы).
+#define LED_TYPE WS2815
+#define COLOR_ORDER GRB
 #define BRIGHTNESS 180
 #define FRAMES_PER_SECOND 120
 
