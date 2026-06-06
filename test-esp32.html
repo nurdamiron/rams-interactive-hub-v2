@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ESP32 Test</title>
+</head>
+<body>
+    <h1>ESP32 Connection Test</h1>
+    <button onclick="testPing()">Test Ping</button>
+    <button onclick="testBlock()">Test Block 1 UP</button>
+    <button onclick="testLED()">Test LED Red</button>
+    <pre id="output"></pre>
+
+    <script>
+        const log = (msg) => {
+            document.getElementById('output').textContent += msg + '\n';
+        };
+
+        async function testPing() {
+            log('Testing ESP32 connection...');
+            try {
+                const res = await fetch('http://192.168.4.1/api/status');
+                log('Status: ' + res.status);
+                const data = await res.json();
+                log('Response: ' + JSON.stringify(data, null, 2));
+            } catch (err) {
+                log('Error: ' + err.message);
+            }
+        }
+
+        async function testBlock() {
+            log('Testing Block 1 UP...');
+            try {
+                const res = await fetch('http://192.168.4.1/api/block?num=1&action=UP&duration=5000', {
+                    method: 'POST'
+                });
+                log('Status: ' + res.status);
+                const data = await res.text();
+                log('Response: ' + data);
+            } catch (err) {
+                log('Error: ' + err.message);
+            }
+        }
+
+        async function testLED() {
+            log('Testing LED Red...');
+            try {
+                const res = await fetch('http://192.168.4.1/api/color?r=255&g=0&b=0', {
+                    method: 'POST'
+                });
+                log('Status: ' + res.status);
+                const data = await res.text();
+                log('Response: ' + data);
+            } catch (err) {
+                log('Error: ' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>

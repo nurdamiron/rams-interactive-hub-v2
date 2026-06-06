@@ -1,0 +1,33 @@
+/**
+ * МИНИМАЛЬНЫЙ ТЕСТ ESP32
+ * Только WiFi + Serial - БЕЗ FastLED!
+ */
+
+#include <WiFi.h>
+
+#define AP_SSID "RAMS_Test"
+#define AP_PASS "rams2026"
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+  
+  Serial.println("\n\n========================================");
+  Serial.println("  МИНИМАЛЬНЫЙ ТЕСТ ESP32");
+  Serial.println("========================================");
+  
+  Serial.println("[TEST] Starting WiFi AP...");
+  WiFi.softAP(AP_SSID, AP_PASS);
+  
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("[WIFI] IP: ");
+  Serial.println(IP);
+  
+  Serial.println("[TEST] SUCCESS! ESP32 working!");
+  Serial.println("========================================\n");
+}
+
+void loop() {
+  delay(1000);
+  Serial.print(".");
+}

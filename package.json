@@ -1,0 +1,128 @@
+{
+  "name": "rams-interactive-hub",
+  "version": "2.0.0",
+  "description": "Interactive presentation system for RAMS Global real estate projects",
+  "author": "RAMS Global",
+  "private": true,
+  "main": "electron/main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nurdamiron/rams-interactive-hub.git"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on tcp:3000 && cross-env NODE_ENV=development electron .\"",
+    "postbuild": "node -e \"const fs=require('fs');const p='out/projects';if(fs.existsSync(p)){fs.rmSync(p,{recursive:true,force:true});console.log('Removed out/projects')}\"",
+    "prebuild:icon": "node scripts/convert-icon.js",
+    "electron:build": "npm run prebuild:icon && next build && electron-builder",
+    "electron:build:win": "npm run prebuild:icon && next build && electron-builder --win",
+    "electron:build:mac": "next build && electron-builder --mac",
+    "electron:build:all": "npm run prebuild:icon && next build && electron-builder --win --mac",
+    "lint": "eslint"
+  },
+  "build": {
+    "appId": "com.rams.interactivehub",
+    "productName": "RAMS Interactive Hub",
+    "copyright": "Copyright © 2026 RAMS Global",
+    "files": [
+      "electron/**/*",
+      "out/**/*",
+      "public/*.svg",
+      "public/*.png",
+      "public/*.ico",
+      "public/images/brand/**/*",
+      "public/fonts/**/*",
+      "!public/projects/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "extraResources": [
+      {
+        "from": "media",
+        "to": "media",
+        "filter": ["**/*"]
+      }
+    ],
+    "directories": {
+      "buildResources": "assets",
+      "output": "dist-new"
+    },
+    "npmRebuild": false,
+    "publish": null,
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/icon.ico",
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    },
+    "mac": {
+      "category": "public.app-category.business",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "public/icon.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "dmg": {
+      "title": "${productName} ${version}",
+      "icon": "public/icon.png",
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    }
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.26.1",
+    "lucide-react": "^0.562.0",
+    "next": "16.1.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.4.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^39.2.7",
+    "electron-builder": "^26.4.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.1",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^4",
+    "to-ico": "^1.1.5",
+    "typescript": "^5",
+    "wait-on": "^9.0.3"
+  }
+}

@@ -1,0 +1,281 @@
+/* Online fonts (CDN) */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&display=swap');
+
+/* Local Material Symbols font (offline-ready) */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  src: url('/fonts/material-symbols-outlined.woff2') format('woff2');
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  -webkit-font-smoothing: antialiased;
+}
+
+@import "tailwindcss";
+
+@theme {
+  /* RAMS Brand Colors */
+  --color-primary: #c49f64;
+  --color-primary-hover: #b08d55;
+  --color-primary-dark: #a27b5c;
+
+  /* Backgrounds */
+  --color-background-light: #f8f7f6;
+  --color-background-dark: #161513;
+  --color-surface-light: #ffffff;
+  --color-surface-dark: #1f1d1a;
+  --color-neutral-warm: #f4f1ea;
+  --color-charcoal: #1e1a14;
+
+  /* Borders */
+  --color-border-light: #e8e2d6;
+  --color-border-dark: #35312c;
+  --color-border-subtle: #35312c;
+
+  /* Text */
+  --color-text-dark: #2a2723;
+  --color-text-light: #f8f7f6;
+  --color-text-muted: #6b665f;
+  --color-text-muted-dark: #b2ada3;
+
+  /* Font Families */
+  --font-family-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-family-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  /* RAMS Brand Colors */
+  --primary: #c49f64;
+  --primary-hover: #b08d55;
+  --primary-dark: #a27b5c;
+
+  /* Backgrounds */
+  --background-light: #f8f7f6;
+  --background-dark: #161513;
+  --surface-light: #ffffff;
+  --surface-dark: #1f1d1a;
+  --neutral-warm: #f4f1ea;
+  --charcoal: #1e1a14;
+
+  /* Borders */
+  --border-light: #e8e2d6;
+  --border-dark: #35312c;
+  --border-subtle: #35312c;
+
+  /* Text */
+  --text-dark: #2a2723;
+  --text-light: #f8f7f6;
+  --text-muted: #6b665f;
+  --text-muted-dark: #b2ada3;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --shadow-quiet: 0 4px 20px -2px rgb(0 0 0 / 0.05);
+  --shadow-quiet-hover: 0 10px 30px -4px rgb(0 0 0 / 0.08);
+}
+
+/* Extended CSS Variables for easy access */
+:root {
+  /* Fonts */
+  --font-display: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  /* Border Radius */
+  --radius-sm: 0.125rem;
+  --radius: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slowest: 700ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: var(--background-dark);
+    --foreground: var(--text-light);
+  }
+}
+
+.dark {
+  --background: var(--background-dark);
+  --foreground: var(--text-light);
+}
+
+.light {
+  --background: var(--background-light);
+  --foreground: var(--text-dark);
+}
+
+/* Global Styles */
+body {
+  font-family: var(--font-display);
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Scrollbar customization */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-dark);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-dark);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-dark);
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Glassmorphism utilities */
+.glass-panel {
+  backdrop-filter: blur(24px);
+  background-color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.glass-panel-dark {
+  backdrop-filter: blur(24px);
+  background-color: rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Animation utilities */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-bottom {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes zoom-in {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes loading-bar-progress {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+.animate-fade-in {
+  animation: fade-in var(--transition-base) ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right var(--transition-slow) ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left var(--transition-slow) ease-out;
+}
+
+.animate-slide-in-bottom {
+  animation: slide-in-bottom var(--transition-slow) ease-out;
+}
+
+.animate-zoom-in {
+  animation: zoom-in var(--transition-base) ease-out;
+}
+
+.animate-loading-bar {
+  animation: loading-bar-progress 4s linear infinite;
+}
+
+/* Gradient backgrounds */
+.bg-luxury-gradient {
+  background: linear-gradient(to bottom right, #161513, #1e1b16);
+}
+
+.bg-pattern {
+  background-image: radial-gradient(rgba(196, 159, 100, 0.07) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+/* Text effects */
+.text-gradient-gold {
+  background: linear-gradient(to right, var(--primary), var(--primary-hover), var(--primary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Prevent text overflow */
+.text-balance {
+  text-wrap: balance;
+}

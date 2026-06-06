@@ -1,0 +1,90 @@
+name: Build Windows Release
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    defaults:
+      run:
+        working-directory: rams-interactive-hub
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: rams-interactive-hub/package-lock.json
+    
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build Electron with icon conversion
+      run: npm run electron:build:win
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Verify build output
+      shell: powershell
+      run: |
+        Write-Host "=== Build Output Files ==="
+        Get-ChildItem dist/*.exe | Format-Table Name, @{Name='Size (MB)';Expression={[math]::Round($_.Length/1MB, 2)}}
+        Write-Host ""
+        Write-Host "=== Checksums ==="
+        Get-ChildItem dist/*.exe | ForEach-Object {
+          $hash = Get-FileHash $_.FullName -Algorithm SHA256
+          Write-Host "$($_.Name): $($hash.Hash)"
+        }
+    
+    - name: Upload Installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: Windows-Installer
+        path: rams-interactive-hub/dist/*Setup*.exe
+        retention-days: 30
+        if-no-files-found: error
+    
+    - name: Upload Portable
+      uses: actions/upload-artifact@v4
+      with:
+        name: Windows-Portable
+        path: rams-interactive-hub/dist/*Portable*.exe
+        retention-days: 30
+        if-no-files-found: error
+    
+    - name: Upload metadata
+      uses: actions/upload-artifact@v4
+      with:
+        name: Build-Metadata
+        path: |
+          rams-interactive-hub/dist/latest.yml
+          rams-interactive-hub/dist/builder-debug.yml
+        retention-days: 30
+        if-no-files-found: warn
+    
+    # Optional: Create GitHub Release for tagged versions
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          rams-interactive-hub/dist/*Setup*.exe
+          rams-interactive-hub/dist/*Portable*.exe
+          rams-interactive-hub/dist/latest.yml
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
