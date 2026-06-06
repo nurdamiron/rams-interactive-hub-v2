@@ -1,16 +1,18 @@
 /**
- * RAMS ACTUATOR CONFIGURATION
+ * RAMS ACTUATOR CONFIGURATION (v2 / KRUG2)
  *
  * ОБЩИЙ КОНФИГУРАЦИОННЫЙ ФАЙЛ для ESP32 и Arduino Mega
  * Содержит маппинг всех блоков актуаторов на пины
  *
  * ВАЖНО: Этот файл используется ОДНОВРЕМЕННО в:
  * - ESP32 (для роутинга команд на правильную Mega)
- * - Arduino Mega #1 (для управления блоками 1-8)
- * - Arduino Mega #2 (для управления блоками 9-15)
+ * - Arduino Mega #1 (для управления блоками 1-7)
+ * - Arduino Mega #2 (для управления блоками 8-13)
  *
- * @version 3.0
- * @date 2026-02-15
+ * 13 зон круга KRUG2, 27 актуаторов (см. docs/V2-SETUP/README.md §3)
+ *
+ * @version 4.0
+ * @date 2026-06-07
  * @author RAMS Global Team
  */
 
@@ -24,23 +26,23 @@
 // ============================================================================
 
 // Общее количество блоков в системе
-#define TOTAL_BLOCKS        15
+#define TOTAL_BLOCKS        13
 
 // Разделение блоков по Mega платам
 #define MEGA1_BLOCK_START   1
-#define MEGA1_BLOCK_END     8
-#define MEGA1_BLOCK_COUNT   8
+#define MEGA1_BLOCK_END     7
+#define MEGA1_BLOCK_COUNT   7
 
-#define MEGA2_BLOCK_START   9
-#define MEGA2_BLOCK_END     15
-#define MEGA2_BLOCK_COUNT   7
+#define MEGA2_BLOCK_START   8
+#define MEGA2_BLOCK_END     13
+#define MEGA2_BLOCK_COUNT   6
 
 // Логика реле (КРИТИЧНО!)
 #define RELAY_ON            LOW   // Инверсная логика: LOW = включено
 #define RELAY_OFF           HIGH  // HIGH = выключено
 
 // Длительность по умолчанию
-#define DEFAULT_DURATION_MS 10000  // 10 секунд
+#define DEFAULT_DURATION_MS 6000  // 6 секунд
 
 // Максимальное количество одновременно активных блоков
 #define MAX_ACTIVE_BLOCKS   2
@@ -89,15 +91,15 @@ struct ActuatorPins {
 
 /**
  * Структура для хранения конфигурации блока
- * Каждый блок имеет 2 актуатора (кроме блока 15, у него 3)
+ * Каждый блок имеет 2 актуатора (кроме блока 7 PARK HOUSE MASLAK, у него 3)
  */
 struct BlockConfig {
-  uint8_t blockNum;           // Номер блока (1-15)
+  uint8_t blockNum;           // Номер блока (1-13)
   uint8_t megaNum;            // Номер Mega платы (1 или 2)
   ActuatorPins actuator1;     // Актуатор 1 (UP и DOWN пины)
   ActuatorPins actuator2;     // Актуатор 2 (UP и DOWN пины)
-  ActuatorPins actuator3;     // Актуатор 3 (только для блока 15)
-  uint8_t actuatorCount;      // Количество актуаторов (обычно 2, для блока 15 = 3)
+  ActuatorPins actuator3;     // Актуатор 3 (только для блока 7)
+  uint8_t actuatorCount;      // Количество актуаторов (обычно 2, для блока 7 = 3)
 };
 
 // ============================================================================
@@ -108,22 +110,19 @@ struct BlockConfig {
  * ВНИМАНИЕ: ЭТО ЕДИНСТВЕННОЕ МЕСТО ГДЕ ОПРЕДЕЛЯЕТСЯ МАППИНГ!
  *
  * Логика пинов:
- * - Каждый блок = 2 актуатора (кроме блока 15)
+ * - Каждый блок = 2 актуатора (кроме блока 7 = 3)
  * - Каждый актуатор = 2 пина (UP и DOWN)
  * - Стандартный блок = 4 пина
- * - Блок 15 = 6 пинов (3 актуатора)
+ * - Блок 7 (PARK HOUSE MASLAK) = 6 пинов (3 актуатора)
  *
- * ВАЖНЫЕ ОСОБЕННОСТИ:
- * - Блок 6 на Mega #1: пины 50-53 (физически запаян)
- * - Блок 7 на Mega #1: пины 42-45 (переназначен)
- * - Блок 8 на Mega #1: пины 46-49 (переназначен)
- * - Блок 14 на Mega #2: пины 50-53 (аналогично блоку 6)
- * - Блок 15 на Mega #2: пины 42-47 (3 АКТУАТОРА!)
+ * РАСПИНОВКА (чистая, последовательно с пина 22):
+ * - Mega #1: блоки 1-7, пины 22-51 (15 актуаторов)
+ * - Mega #2: блоки 8-13, пины 22-45 (12 актуаторов)
  */
 const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
-  // MEGA #1 - Блоки 1-8
+  // ===== MEGA #1 - Блоки 1-7 =====
   {
-    .blockNum = 1,
+    .blockNum = 1,            // NOMAD
     .megaNum = 1,
     .actuator1 = {22, 23},
     .actuator2 = {24, 25},
@@ -131,7 +130,7 @@ const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
     .actuatorCount = 2
   },
   {
-    .blockNum = 2,
+    .blockNum = 2,            // GRANDE VIE
     .megaNum = 1,
     .actuator1 = {26, 27},
     .actuator2 = {28, 29},
@@ -139,7 +138,7 @@ const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
     .actuatorCount = 2
   },
   {
-    .blockNum = 3,
+    .blockNum = 3,            // KERUEN CITY
     .megaNum = 1,
     .actuator1 = {30, 31},
     .actuator2 = {32, 33},
@@ -147,7 +146,7 @@ const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
     .actuatorCount = 2
   },
   {
-    .blockNum = 4,
+    .blockNum = 4,            // RAMS GARDEN BAHCELIEVLER
     .megaNum = 1,
     .actuator1 = {34, 35},
     .actuator2 = {36, 37},
@@ -155,7 +154,7 @@ const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
     .actuatorCount = 2
   },
   {
-    .blockNum = 5,
+    .blockNum = 5,            // RAMS RESORT BODRUM
     .megaNum = 1,
     .actuator1 = {38, 39},
     .actuator2 = {40, 41},
@@ -163,33 +162,25 @@ const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
     .actuatorCount = 2
   },
   {
-    .blockNum = 6,
+    .blockNum = 6,            // RAMS CITY HALIC 2
     .megaNum = 1,
-    .actuator1 = {50, 51},  // ВАЖНО: Физически запаян на 50-53
-    .actuator2 = {52, 53},
-    .actuator3 = {0, 0},
-    .actuatorCount = 2
-  },
-  {
-    .blockNum = 7,
-    .megaNum = 1,
-    .actuator1 = {42, 43},  // ВАЖНО: Переназначен
+    .actuator1 = {42, 43},
     .actuator2 = {44, 45},
     .actuator3 = {0, 0},
     .actuatorCount = 2
   },
   {
-    .blockNum = 8,
+    .blockNum = 7,            // PARK HOUSE MASLAK (3 АКТУАТОРА!)
     .megaNum = 1,
-    .actuator1 = {46, 47},  // ВАЖНО: Переназначен
+    .actuator1 = {46, 47},
     .actuator2 = {48, 49},
-    .actuator3 = {0, 0},
-    .actuatorCount = 2
+    .actuator3 = {50, 51},
+    .actuatorCount = 3
   },
 
-  // MEGA #2 - Блоки 9-15
+  // ===== MEGA #2 - Блоки 8-13 =====
   {
-    .blockNum = 9,
+    .blockNum = 8,            // SAKURA
     .megaNum = 2,
     .actuator1 = {22, 23},
     .actuator2 = {24, 25},
@@ -197,7 +188,7 @@ const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
     .actuatorCount = 2
   },
   {
-    .blockNum = 10,
+    .blockNum = 9,            // RAMS CITY HALIC 1
     .megaNum = 2,
     .actuator1 = {26, 27},
     .actuator2 = {28, 29},
@@ -205,7 +196,7 @@ const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
     .actuatorCount = 2
   },
   {
-    .blockNum = 11,
+    .blockNum = 10,           // RAMS CITY GAZIANTEP
     .megaNum = 2,
     .actuator1 = {30, 31},
     .actuator2 = {32, 33},
@@ -213,7 +204,7 @@ const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
     .actuatorCount = 2
   },
   {
-    .blockNum = 12,
+    .blockNum = 11,           // BAITEREK SCHOOL
     .megaNum = 2,
     .actuator1 = {34, 35},
     .actuator2 = {36, 37},
@@ -221,7 +212,7 @@ const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
     .actuatorCount = 2
   },
   {
-    .blockNum = 13,
+    .blockNum = 12,           // HYATT REGENCY
     .megaNum = 2,
     .actuator1 = {38, 39},
     .actuator2 = {40, 41},
@@ -229,20 +220,12 @@ const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
     .actuatorCount = 2
   },
   {
-    .blockNum = 14,
+    .blockNum = 13,           // RAMS CITY ALMATY
     .megaNum = 2,
-    .actuator1 = {50, 51},  // ВАЖНО: Физически запаян (аналогично блоку 6)
-    .actuator2 = {52, 53},
+    .actuator1 = {42, 43},
+    .actuator2 = {44, 45},
     .actuator3 = {0, 0},
     .actuatorCount = 2
-  },
-  {
-    .blockNum = 15,
-    .megaNum = 2,
-    .actuator1 = {42, 43},  // ВАЖНО: 3 АКТУАТОРА!
-    .actuator2 = {44, 45},
-    .actuator3 = {46, 47},  // Третий актуатор
-    .actuatorCount = 3
   }
 };
 
@@ -252,7 +235,7 @@ const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
 
 /**
  * Получить конфигурацию блока по его номеру
- * @param blockNum Номер блока (1-15)
+ * @param blockNum Номер блока (1-13)
  * @return Указатель на BlockConfig или nullptr если блок не найден
  */
 inline const BlockConfig* getBlockConfig(uint8_t blockNum) {
@@ -264,7 +247,7 @@ inline const BlockConfig* getBlockConfig(uint8_t blockNum) {
 
 /**
  * Проверить принадлежность блока к конкретной Mega
- * @param blockNum Номер блока (1-15)
+ * @param blockNum Номер блока (1-13)
  * @param megaNum Номер Mega (1 или 2)
  * @return true если блок принадлежит указанной Mega
  */
@@ -276,8 +259,8 @@ inline bool isBlockOnMega(uint8_t blockNum, uint8_t megaNum) {
 
 /**
  * Получить количество актуаторов для блока
- * @param blockNum Номер блока (1-15)
- * @return Количество актуаторов (обычно 2, для блока 15 = 3)
+ * @param blockNum Номер блока (1-13)
+ * @return Количество актуаторов (обычно 2, для блока 7 = 3)
  */
 inline uint8_t getBlockActuatorCount(uint8_t blockNum) {
   const BlockConfig* config = getBlockConfig(blockNum);
@@ -288,7 +271,7 @@ inline uint8_t getBlockActuatorCount(uint8_t blockNum) {
 /**
  * Проверить валидность номера блока
  * @param blockNum Номер блока
- * @return true если номер блока валиден (1-15)
+ * @return true если номер блока валиден (1-13)
  */
 inline bool isValidBlockNum(uint8_t blockNum) {
   return (blockNum >= 1 && blockNum <= TOTAL_BLOCKS);
@@ -367,7 +350,7 @@ inline void printAllBlockConfigs() {
 
 /**
  * Вывести информацию о конкретном блоке
- * @param blockNum Номер блока (1-15)
+ * @param blockNum Номер блока (1-13)
  */
 inline void printBlockConfig(uint8_t blockNum) {
   const BlockConfig* cfg = getBlockConfig(blockNum);

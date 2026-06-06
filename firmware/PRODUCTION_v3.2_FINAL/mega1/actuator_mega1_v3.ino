@@ -1,7 +1,7 @@
 /**
  * RAMS Actuator Controller - Arduino Mega #1
  *
- * Управляет блоками 1-8 (16 актуаторов)
+ * Управляет блоками 1-7 (15 актуаторов: 6×2 + 1×3 PARK HOUSE MASLAK)
  * Простой текстовый протокол (стиль DroneControl.ino)
  * Использует общий конфигурационный файл ACTUATOR_CONFIG.h
  *
@@ -41,7 +41,7 @@ struct BlockState {
   int duration;
 };
 
-// Состояния блоков 1-8 (индекс 0 не используется)
+// Состояния блоков 1-7 (индекс 0 не используется)
 BlockState blockStates[MEGA1_BLOCK_COUNT + 1];
 
 // Буфер для команд
@@ -59,7 +59,7 @@ void setup() {
   DEBUG_SERIAL.begin(SERIAL_BAUD);
   DEBUG_SERIAL.println("\n========================================");
   DEBUG_SERIAL.println("  RAMS ACTUATOR CONTROLLER - MEGA #1");
-  DEBUG_SERIAL.println("  Blocks 1-8 | DroneControl Style");
+  DEBUG_SERIAL.println("  Blocks 1-7 | DroneControl Style");
   DEBUG_SERIAL.println("========================================");
 
   // Инициализация всех пинов
