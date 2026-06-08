@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAMS LED Tester</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#0a0a0f;--surface:#13131a;--surface2:#1c1c26;--border:#2a2a3d;
+    --accent:#00d4ff;--accent2:#7c3aed;--green:#22c55e;--red:#ef4444;--orange:#f97316;
+    --text:#f0f0ff;--muted:#6b7280;
+  }
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:24px}
+  h1{font-size:1.8rem;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+  .subtitle{color:var(--muted);font-size:.85rem;margin-bottom:24px}
+
+  /* Connection bar */
+  .conn-bar{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;margin-bottom:20px;flex-wrap:wrap}
+  .conn-bar input{flex:1;min-width:180px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:.9rem;outline:none}
+  .conn-bar input:focus{border-color:var(--accent)}
+  .status-dot{width:10px;height:10px;border-radius:50%;background:var(--red);flex-shrink:0;transition:background .3s}
+  .status-dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+  .status-dot.checking{background:var(--orange);animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  #status-text{font-size:.85rem;color:var(--muted)}
+
+  /* Buttons */
+  .btn{padding:9px 18px;border:none;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;transition:all .2s;font-family:inherit}
+  .btn-primary{background:var(--accent);color:#000}
+  .btn-primary:hover{background:#00bde6;transform:translateY(-1px)}
+  .btn-danger{background:var(--red);color:#fff}
+  .btn-danger:hover{background:#dc2626}
+  .btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+  /* Main grid */
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:20px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+  /* Strip cards */
+  .strips-section h2{font-size:1rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+  .strips-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px}
+  .strip-card{background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;transition:all .2s;position:relative}
+  .strip-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,212,255,.15)}
+  .strip-card.active{border-color:var(--accent);background:#0d1f26;box-shadow:0 0 0 2px rgba(0,212,255,.2)}
+  .strip-card .idx{font-size:.7rem;color:var(--muted);margin-bottom:4px}
+  .strip-card .name{font-weight:700;font-size:1rem;margin-bottom:2px}
+  .strip-card .gpio{font-size:.75rem;color:var(--accent);font-family:monospace}
+  .strip-card .leds-count{font-size:.75rem;color:var(--muted)}
+  .strip-preview{height:6px;border-radius:3px;background:var(--border);margin-top:10px;overflow:hidden;position:relative}
+  .strip-preview-fill{height:100%;border-radius:3px;transition:width .3s,background .3s;width:0}
+  .strip-card.active .strip-preview-fill{background:var(--accent)}
+
+  /* Controls panel */
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;position:sticky;top:24px}
+  .panel h2{font-size:.95rem;font-weight:600;margin-bottom:16px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:6px;font-weight:500}
+  .field input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+  .field .val{font-family:monospace;color:var(--accent);font-size:.9rem;font-weight:600}
+  .row{display:flex;gap:8px;align-items:center}
+  .row .val{width:36px;text-align:right}
+  input[type=color]{width:48px;height:36px;border:2px solid var(--border);border-radius:8px;cursor:pointer;background:none;padding:2px}
+  .color-presets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .color-preset{width:28px;height:28px;border-radius:6px;cursor:pointer;border:2px solid transparent;transition:all .2s;flex-shrink:0}
+  .color-preset:hover,.color-preset.sel{border-color:#fff;transform:scale(1.15)}
+  .divider{height:1px;background:var(--border);margin:16px 0}
+  .log{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:monospace;font-size:.75rem;color:var(--muted);height:120px;overflow-y:auto;line-height:1.5}
+  .log .ok{color:var(--green)}
+  .log .err{color:var(--red)}
+  .log .info{color:var(--accent)}
+
+  /* Address range */
+  .addr-row{display:flex;gap:8px;align-items:flex-end}
+  .addr-row .field{flex:1;margin-bottom:0}
+  .addr-row input[type=number]{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:.9rem;outline:none;font-family:monospace}
+  .addr-row input:focus{border-color:var(--accent)}
+  .addr-vis{height:10px;border-radius:5px;background:var(--border);margin-top:8px;overflow:hidden;position:relative;cursor:pointer}
+  .addr-vis-range{height:100%;position:absolute;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:5px;transition:left .2s,width .2s}
+
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:.7rem;font-weight:600;background:rgba(0,212,255,.1);color:var(--accent);border:1px solid rgba(0,212,255,.2)}
+</style>
+</head>
+<body>
+
+<h1>⚡ RAMS LED Tester</h1>
+<p class="subtitle">Временный контроллер для проверки адресации LED-лент на ESP32</p>
+
+<!-- Connection -->
+<div class="conn-bar">
+  <div class="status-dot checking" id="dot"></div>
+  <span id="status-text">Проверка подключения...</span>
+  <input type="text" id="esp-ip" value="192.168.4.1" placeholder="IP адрес ESP32">
+  <button class="btn btn-primary" onclick="ping()">Подключить</button>
+  <button class="btn btn-danger" onclick="clearAll()">🔴 Выкл. всё</button>
+</div>
+
+<div class="grid">
+  <!-- Left: Strip Cards -->
+  <div class="strips-section">
+    <h2>Ленты / Strips</h2>
+    <div class="strips-grid" id="strips-grid">
+      <!-- Generated by JS -->
+    </div>
+
+    <h2>Быстрые пресеты</h2>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+      <button class="btn btn-ghost" onclick="testAllSequential()">🌊 Тест по очереди</button>
+      <button class="btn btn-ghost" onclick="testAllSame()">💡 Все сразу (белый)</button>
+      <button class="btn btn-ghost" onclick="testRainbow()">🌈 Радуга по лентам</button>
+    </div>
+  </div>
+
+  <!-- Right: Control Panel -->
+  <div class="panel">
+    <h2>Управление</h2>
+
+    <div id="selected-strip-label" style="color:var(--muted);font-size:.85rem;margin-bottom:12px">
+      Выбери ленту слева →
+    </div>
+
+    <!-- Color -->
+    <div class="field">
+      <label>Цвет <span class="badge" id="rgb-badge">RGB(0,212,255)</span></label>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input type="color" id="color-pick" value="#00d4ff" oninput="onColorChange()">
+        <div class="color-presets">
+          <div class="color-preset" style="background:#ff0000" onclick="setPreset('#ff0000')" title="Красный"></div>
+          <div class="color-preset" style="background:#00ff00" onclick="setPreset('#00ff00')" title="Зеленый"></div>
+          <div class="color-preset" style="background:#0000ff" onclick="setPreset('#0000ff')" title="Синий"></div>
+          <div class="color-preset" style="background:#00d4ff" onclick="setPreset('#00d4ff')" title="Циан"></div>
+          <div class="color-preset" style="background:#ffffff" onclick="setPreset('#ffffff')" title="Белый"></div>
+          <div class="color-preset" style="background:#ff6600" onclick="setPreset('#ff6600')" title="Оранжевый"></div>
+          <div class="color-preset" style="background:#ff00ff" onclick="setPreset('#ff00ff')" title="Пурпурный"></div>
+          <div class="color-preset" style="background:#ffff00" onclick="setPreset('#ffff00')" title="Желтый"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Address range -->
+    <div class="field">
+      <label>Диапазон адресов LED</label>
+      <div class="addr-row">
+        <div class="field">
+          <label>От (from)</label>
+          <input type="number" id="addr-from" value="0" min="0" max="299" oninput="updateAddrVis()">
+        </div>
+        <div class="field">
+          <label>До (to)</label>
+          <input type="number" id="addr-to" value="299" min="0" max="299" oninput="updateAddrVis()">
+        </div>
+      </div>
+      <div class="addr-vis" id="addr-vis" onclick="onAddrVisClick(event)">
+        <div class="addr-vis-range" id="addr-vis-range"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:.72rem;color:var(--muted)">
+        <span>0</span>
+        <span id="addr-mid">75</span>
+        <span id="addr-max">149</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="send-btn" onclick="sendTest()" disabled>▶ Зажечь</button>
+      <button class="btn btn-ghost" onclick="setAddrAll()">Все адреса</button>
+      <button class="btn btn-ghost" onclick="setAddrHalf('first')">½ Начало</button>
+      <button class="btn btn-ghost" onclick="setAddrHalf('last')">½ Конец</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Brightness -->
+    <div class="field">
+      <label>Яркость <span class="val" id="bri-val">200</span></label>
+      <input type="range" id="bri" min="0" max="255" value="200" oninput="onBri(this.value)" onchange="sendBri()">
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Log -->
+    <div class="field">
+      <label>Лог</label>
+      <div class="log" id="log"></div>
+    </div>
+    <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:.75rem" onclick="document.getElementById('log').innerHTML=''">Очистить лог</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Config
+// ============================================================
+const STRIPS_DEFAULT = [
+  {idx:0, gpio:15, leds:300, name:"Ray 1"},
+  {idx:1, gpio:14, leds:300, name:"Outer Circle"},
+  {idx:2, gpio:27, leds:300, name:"Inner Circle"},
+  {idx:3, gpio:23, leds:300, name:"Ray 4"},
+  {idx:4, gpio:32, leds:300, name:"Ray 2"},
+  {idx:5, gpio:2,  leds:300, name:"Ray 3"},
+  {idx:6, gpio:5,  leds:300, name:"Ray 5"},
+  {idx:7, gpio:21, leds:300, name:"Ray 8"},
+  {idx:8, gpio:22, leds:300, name:"Ray 6"},
+  {idx:9, gpio:18, leds:300, name:"Ray 7"},
+];
+
+let strips = STRIPS_DEFAULT.slice();
+let selectedStrip = null;
+let connected = false;
+
+function ip() { return document.getElementById('esp-ip').value.trim(); }
+
+// ============================================================
+// Log
+// ============================================================
+function log(msg, cls='') {
+  const el = document.getElementById('log');
+  const line = `<div class="${cls}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+  el.innerHTML += line;
+  el.scrollTop = el.scrollHeight;
+}
+
+// ============================================================
+// Fetch helper with timeout
+// ============================================================
+async function fetchWithTimeout(resource, options = {}) {
+  const { timeout = 1200 } = options;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(resource, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch(e) {
+    clearTimeout(id);
+    throw e;
+  }
+}
+
+// ============================================================
+// Fetch helper (direct to ESP32, no CORS proxy needed when on same network)
+// ============================================================
+async function esp(path) {
+  const url = `http://${ip()}${path}`;
+  try {
+    const res = await fetchWithTimeout(url, {timeout: 4000});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res;
+  } catch(e) {
+    throw e;
+  }
+}
+
+// ============================================================
+// Auto Detect ESP32 IP
+// ============================================================
+async function autoDetect() {
+  const dot = document.getElementById('dot');
+  const txt = document.getElementById('status-text');
+  dot.className = 'status-dot checking';
+  txt.textContent = 'Автоопределение IP ESP32...';
+
+  const candidates = [
+    '192.168.110.176', // STA Mode IP on Rams_WIFI
+    '192.168.4.1',     // AP Mode IP (default)
+    'rams-esp32.local' // mDNS name
+  ];
+
+  log('Поиск ESP32 в сети...', 'info');
+
+  let foundHost = null;
+  for (const host of candidates) {
+    try {
+      log(`Проверка: http://${host}/api/status...`, 'info');
+      const res = await fetchWithTimeout(`http://${host}/api/status`, { timeout: 1200 });
+      if (res.ok) {
+        foundHost = host;
+        break; // Found one!
+      }
+    } catch (e) {
+      // ignore and try next
+    }
+  }
+
+  if (foundHost) {
+    document.getElementById('esp-ip').value = foundHost;
+    log(`ESP32 обнаружен на: ${foundHost}`, 'ok');
+  } else {
+    log('ESP32 не обнаружен автоматически. Используем IP по умолчанию.', 'err');
+  }
+  
+  await ping();
+}
+
+// ============================================================
+// Connection
+// ============================================================
+async function ping() {
+  const dot = document.getElementById('dot');
+
+  const txt = document.getElementById('status-text');
+  dot.className = 'status-dot checking';
+  txt.textContent = 'Подключение...';
+  try {
+    await esp('/api/status');
+    connected = true;
+    dot.className = 'status-dot on';
+    txt.textContent = `✅ ESP32 онлайн (${ip()})`;
+    log(`Подключено к ${ip()}`, 'ok');
+    // Try to load strip info
+    try {
+      const res = await esp('/api/info');
+      const data = await res.json();
+      if (data.strips && data.strips.length) {
+        strips = data.strips;
+        renderStrips();
+        log(`Получена конфигурация: ${strips.length} лент`, 'info');
+      }
+    } catch(_) { /* old firmware, use defaults */ }
+    document.getElementById('send-btn').disabled = false;
+  } catch(e) {
+    connected = false;
+    dot.className = 'status-dot';
+    txt.textContent = `❌ Нет подключения — ${e.message}`;
+    log(`Ошибка: ${e.message}`, 'err');
+    document.getElementById('send-btn').disabled = true;
+  }
+}
+
+// ============================================================
+// Render strip cards
+// ============================================================
+function renderStrips() {
+  const grid = document.getElementById('strips-grid');
+  grid.innerHTML = '';
+  strips.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'strip-card';
+    card.id = `card-${s.idx}`;
+    card.innerHTML = `
+      <div class="idx">Strip ${s.idx}</div>
+      <div class="name">${s.name}</div>
+      <div class="gpio">GPIO ${s.gpio}</div>
+      <div class="leds-count">${s.leds} LED</div>
+      <div class="strip-preview"><div class="strip-preview-fill" id="fill-${s.idx}"></div></div>
+    `;
+    card.onclick = () => selectStrip(s);
+    grid.appendChild(card);
+  });
+}
+
+function selectStrip(s) {
+  selectedStrip = s;
+  document.querySelectorAll('.strip-card').forEach(c => c.classList.remove('active'));
+  const card = document.getElementById(`card-${s.idx}`);
+  if (card) card.classList.add('active');
+  document.getElementById('selected-strip-label').innerHTML =
+    `Выбрано: <strong>${s.name}</strong> &nbsp; <span class="badge">GPIO ${s.gpio}</span> &nbsp; <span class="badge">${s.leds} LED</span>`;
+  // Update address max
+  const maxAddr = s.leds - 1;
+  document.getElementById('addr-from').max = maxAddr;
+  document.getElementById('addr-to').max = maxAddr;
+  document.getElementById('addr-to').value = maxAddr;
+  document.getElementById('addr-max').textContent = maxAddr;
+  document.getElementById('addr-mid').textContent = Math.floor(maxAddr/2);
+  updateAddrVis();
+  if (connected) document.getElementById('send-btn').disabled = false;
+}
+
+// ============================================================
+// Color
+// ============================================================
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return {r,g,b};
+}
+function onColorChange() {
+  const hex = document.getElementById('color-pick').value;
+  const {r,g,b} = hexToRgb(hex);
+  document.getElementById('rgb-badge').textContent = `RGB(${r},${g},${b})`;
+}
+function setPreset(hex) {
+  document.getElementById('color-pick').value = hex;
+  onColorChange();
+}
+
+// ============================================================
+// Brightness
+// ============================================================
+function onBri(v) { document.getElementById('bri-val').textContent = v; }
+async function sendBri() {
+  if (!connected) return;
+  const v = document.getElementById('bri').value;
+  try {
+    await esp(`/api/bri?v=${v}`);
+    log(`Яркость → ${v}`, 'ok');
+  } catch(e) { log(`Яркость err: ${e.message}`, 'err'); }
+}
+
+// ============================================================
+// Address range
+// ============================================================
+function updateAddrVis() {
+  const s = selectedStrip;
+  const maxAddr = s ? s.leds - 1 : 149;
+  const from = parseInt(document.getElementById('addr-from').value) || 0;
+  const to   = parseInt(document.getElementById('addr-to').value) || maxAddr;
+  const pct_from = (from / maxAddr) * 100;
+  const pct_to   = (to   / maxAddr) * 100;
+  const bar = document.getElementById('addr-vis-range');
+  bar.style.left  = pct_from + '%';
+  bar.style.width = Math.max(0, pct_to - pct_from) + '%';
+}
+function onAddrVisClick(e) {
+  const vis = document.getElementById('addr-vis');
+  const rect = vis.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  const s = selectedStrip;
+  const maxAddr = s ? s.leds - 1 : 149;
+  const addr = Math.round(pct * maxAddr);
+  // If clicking closer to from, move from; else move to
+  const from = parseInt(document.getElementById('addr-from').value) || 0;
+  const to   = parseInt(document.getElementById('addr-to').value) || maxAddr;
+  if (Math.abs(addr - from) < Math.abs(addr - to)) {
+    document.getElementById('addr-from').value = Math.min(addr, to);
+  } else {
+    document.getElementById('addr-to').value = Math.max(addr, from);
+  }
+  updateAddrVis();
+}
+function setAddrAll() {
+  const maxAddr = selectedStrip ? selectedStrip.leds - 1 : 149;
+  document.getElementById('addr-from').value = 0;
+  document.getElementById('addr-to').value = maxAddr;
+  updateAddrVis();
+}
+function setAddrHalf(h) {
+  const maxAddr = selectedStrip ? selectedStrip.leds - 1 : 149;
+  const mid = Math.floor(maxAddr / 2);
+  if (h === 'first') {
+    document.getElementById('addr-from').value = 0;
+    document.getElementById('addr-to').value = mid;
+  } else {
+    document.getElementById('addr-from').value = mid + 1;
+    document.getElementById('addr-to').value = maxAddr;
+  }
+  updateAddrVis();
+}
+
+// ============================================================
+// Send test
+// ============================================================
+async function sendTest() {
+  if (!selectedStrip || !connected) return;
+  const hex = document.getElementById('color-pick').value;
+  const {r,g,b} = hexToRgb(hex);
+  const from = parseInt(document.getElementById('addr-from').value) || 0;
+  const to   = parseInt(document.getElementById('addr-to').value);
+  const url  = `/api/test?strip=${selectedStrip.idx}&from=${from}&to=${to}&r=${r}&g=${g}&b=${b}`;
+  try {
+    const res = await esp(url);
+    const data = await res.json();
+    log(`✅ ${selectedStrip.name} GPIO${data.gpio} addr[${data.from}-${data.to}] RGB(${r},${g},${b})`, 'ok');
+    // Animate preview
+    const fill = document.getElementById(`fill-${selectedStrip.idx}`);
+    if (fill) {
+      fill.style.background = hex;
+      const maxAddr = selectedStrip.leds - 1;
+      const pct = ((to - from + 1) / selectedStrip.leds) * 100;
+      fill.style.width = pct + '%';
+    }
+  } catch(e) {
+    log(`❌ Test err: ${e.message}`, 'err');
+  }
+}
+
+// ============================================================
+// Clear all
+// ============================================================
+async function clearAll() {
+  try {
+    await esp('/api/clear');
+    log('Все ленты выключены', 'ok');
+    document.querySelectorAll('.strip-preview-fill').forEach(f => { f.style.width='0'; });
+  } catch(e) { log(`Clear err: ${e.message}`, 'err'); }
+}
+
+// ============================================================
+// Presets
+// ============================================================
+const PRESET_COLORS = ['#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ff6600','#ffffff','#7c3aed','#22c55e'];
+
+async function testAllSequential() {
+  if (!connected) { log('Нет подключения!','err'); return; }
+  log('Запуск последовательного теста...', 'info');
+  for (let i = 0; i < strips.length; i++) {
+    const s = strips[i];
+    const hex = PRESET_COLORS[i % PRESET_COLORS.length];
+    const {r,g,b} = hexToRgb(hex);
+    const to = s.leds - 1;
+    try {
+      await esp(`/api/test?strip=${s.idx}&from=0&to=${to}&r=${r}&g=${g}&b=${b}`);
+      log(`→ ${s.name} GPIO${s.gpio}`, 'ok');
+      const fill = document.getElementById(`fill-${s.idx}`);
+      if (fill) { fill.style.background = hex; fill.style.width='100%'; }
+    } catch(e) { log(`err strip ${i}: ${e.message}`, 'err'); }
+    await new Promise(r => setTimeout(r, 800));
+    await esp('/api/clear');
+    if (fill) fill.style.width = '0';
+    await new Promise(r => setTimeout(r, 200));
+  }
+  log('Тест завершен ✅', 'ok');
+}
+
+async function testAllSame() {
+  if (!connected) { log('Нет подключения!','err'); return; }
+  try {
+    // Один запрос через /api/color — зажигает все ленты сразу
+    await esp('/api/clear');  // сначала сброс
+    // /api/color — POST, зажигает все активные блоки
+    // Вместо этого зажижжём поочередно все ленты через test без сброса
+    for (const s of strips) {
+      const to = s.leds - 1;
+      await esp(`/api/test?strip=${s.idx}&from=0&to=${to}&r=255&g=255&b=255&noclear=1`);
+    }
+    document.querySelectorAll('.strip-preview-fill').forEach(f => { f.style.background='#ffffff'; f.style.width='100%'; });
+    log('Все ленты белый ✅', 'ok');
+  } catch(e) { log(`err: ${e.message}`, 'err'); }
+}
+
+async function testRainbow() {
+  if (!connected) { log('Нет подключения!','err'); return; }
+  // Сначала сброс, затем зажигаем все ленты с разными цветами через noclear=1
+  await esp('/api/clear');
+  for (let i = 0; i < strips.length; i++) {
+    const s = strips[i];
+    const hex = PRESET_COLORS[i % PRESET_COLORS.length];
+    const {r,g,b} = hexToRgb(hex);
+    const to = s.leds - 1;
+    try {
+      // noclear=1: не стираем предыдущие
+      await esp(`/api/test?strip=${s.idx}&from=0&to=${to}&r=${r}&g=${g}&b=${b}&noclear=1`);
+      const fill = document.getElementById(`fill-${s.idx}`);
+      if (fill) { fill.style.background=hex; fill.style.width='100%'; }
+    } catch(e) {}
+  }
+  log('Радуга по лентам ✅', 'ok');
+}
+
+// ============================================================
+// Init
+// ============================================================
+renderStrips();
+updateAddrVis();
+autoDetect();
+setInterval(() => {
+  if (connected) esp('/api/status').catch(() => {
+    connected = false;
+    document.getElementById('dot').className = 'status-dot';
+    document.getElementById('status-text').textContent = '❌ Соединение потеряно';
+    document.getElementById('send-btn').disabled = true;
+  });
+}, 5000);
+</script>
+</body>
+</html>

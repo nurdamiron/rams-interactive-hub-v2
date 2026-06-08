@@ -6,18 +6,18 @@
  * - ESP32 → Serial2 (GPIO16/17) → Mega #2 (блоки 9-15)
  * - ESP32 → GPIO pins → WS2812B LEDs (10 strips)
  *
- * LED конфигурация (ФИНАЛЬНАЯ, подтверждена физическим тестом):
+ * LED конфигурация (подтверждено физическим тестом):
  *  idx  GPIO  Лента
- *   0    32   Ray 1
- *   1    22   Ray 2
- *   2    18   Ray 3
- *   3    21   Ray 4
- *   4    13   Ray 5
- *   5    27   Ray 6
- *   6     4   Ray 7 (перепаян с GPIO23 на GPIO4)
- *   7    14   Ray 8
- *   8     5   Inner circle (64 LED)
- *   9     2   Outer circle (150 LED)
+ *   0    15   Ray 1
+ *   1    14   Outer circle (150 LED)
+ *   2    27   Inner circle (64 LED)
+ *   3    23   Ray 4
+ *   4    32   Ray 2
+ *   5     2   Ray 3
+ *   6     5   Ray 5
+ *   7    21   Ray 8
+ *   8    22   Ray 6
+ *   9    18   Ray 7 (перепаян — проверить пайку!)
  *
  * Логика: Блок 1 UP → Актуаторы 1 UP + LED зона 1 ON
  *
@@ -29,13 +29,10 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
-#include <ArduinoOTA.h>
+#define FASTLED_ALLOW_INTERRUPTS 0
 #include <FastLED.h>
 #include "ACTUATOR_CONFIG.h"
 
-// OTA Update Configuration
-#define OTA_HOSTNAME "RAMS-ESP32"
-#define OTA_PASSWORD "rams2026"
 
 // ============================================================================
 // WiFi КОНФИГУРАЦИЯ
@@ -51,15 +48,17 @@
 // ============================================================================
 // LED КОНФИГУРАЦИЯ (из svetdiod-project)
 // ============================================================================
-#define NUM_STRIPS  10
-#define MAX_LEDS    150
+#define NUM_STRIPS  9
+#define MAX_LEDS    600
 
-// GPIO пины для LED лент (ФИНАЛЬНЫЙ маппинг, подтверждён тестом)
-//  idx:    0    1    2    3    4    5    6    7    8    9
-// pin:    32   22   18   21   13   27    4   14    5    2
-// desc:   R1   R2   R3   R4   R5   R6   R7   R8  Inn  Out
-static const uint8_t  PIN_GPIO[NUM_STRIPS] = { 32, 22, 18, 21, 13, 27,  4, 14,  5,  2 };
-static const uint16_t PIN_LEDS[NUM_STRIPS] = { 33, 33, 33, 33, 33, 33, 33, 33, 64, 150 };
+// GPIO пины для LED лент (подтверждено физическим тестом)
+//  idx:    0    1    2    3    4    5    6    7    8
+// pin:    23   15   14   27   32    2   21   22   18
+// desc:   Big  Long Long Long Long Long Shrt Innr Long
+// NOTE:   Big circle gets RMT ch0 (hardware). GPIO18 is 9th (bit-bang fallback).
+static const uint8_t  PIN_GPIO[NUM_STRIPS] = { 23,  15,  14,  27,  32,   2,  21,  22,  18 };
+static const uint16_t PIN_LEDS[NUM_STRIPS] = {600, 110, 110, 110, 110, 110,  48, 146, 110 };
+
 
 static CRGB leds[NUM_STRIPS][MAX_LEDS];
 static uint8_t heat[NUM_STRIPS][MAX_LEDS];  // Для эффекта Fire
@@ -79,20 +78,20 @@ uint8_t gSpd = 128; // Скорость эффекта (0-255)
 #define RAY_OUT_COUNT 15   // 18-32 (15 LED)
 
 // Индексы лучей и кругов
-#define S_INNER  8   // GPIO 5,  внутренний круг 64 LED
-#define S_OUTER  9   // GPIO 2,  внешний круг 150 LED
+#define S_INNER  7   // GPIO 23, внутренний круг
+#define S_OUTER  0   // GPIO 22, большой круг (внешний)
 
 // Маппинг лучей (idx в массиве leds[] → Ray 1-8)
-// leds[0]=R1, leds[1]=R2, leds[2]=R3, leds[3]=R4
-// leds[4]=R5, leds[5]=R6, leds[6]=R7, leds[7]=R8
-static const uint8_t RAY[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+// Используем только существующие 6 лучей (индексы: 1, 2, 3, 4, 5, 8)
+// Это предотвращает выход за пределы массива leds (индекс 9 был нелегальным)
+static const uint8_t RAY[8] = { 1, 2, 3, 4, 5, 8, 1, 2 };
 
-// Маппинг внутреннего круга (64 LED на 8 долей)
+// Маппинг внутреннего круга (146 LED на 8 долей)
 //                                     доля1    доля2   доля3   доля4   доля5   доля6   доля7   доля8
 static const uint16_t INNER_START[8] = { 16,     8,      0,     56,     47,     40,     33,     24 };
 static const uint16_t INNER_COUNT[8] = {  8,     8,      8,      9,      9,      7,      7,      9 };
 
-// Маппинг внешнего круга (150 LED на 8 долей, блок 8 БЕЗ внешнего круга!)
+// Маппинг внешнего круга (600 LED на 8 долей, блок 8 БЕЗ внешнего круга!)
 //                                     доля1    доля2   доля3   доля4   доля5   доля6   доля7   доля8
 static const uint16_t OUTER_START[8]   = { 128,   106,     84,     62,     38,     18,      0,      0 };
 static const uint16_t OUTER_COUNT[8]   = {  22,    22,     22,     22,     24,     20,     18,      0 };
@@ -130,6 +129,7 @@ int activeBlocksCount = 0;
 // LED состояния - ОТДЕЛЬНО от актуаторов!
 // LED включается при UP и остается ВКЛ пока не придет STOP или DOWN
 bool ledStates[TOTAL_BLOCKS + 1];  // true = LED ВКЛ, false = LED ВЫКЛ
+bool testMode = false;             // Тест-режим: loop не перезаписывает LED
 
 // Fade состояния для плавного угасания LED при опускании
 struct FadeState {
@@ -176,21 +176,22 @@ void setup() {
   // Serial.println("[POWER] GPIO4  = Power Button (INPUT)");
 
   // LED инициализация (из svetdiod-project)
-  FastLED.addLeds<WS2812B, 32, GRB>(leds[0], PIN_LEDS[0]);  // Ray 1  (idx 0, GPIO 32)
-  FastLED.addLeds<WS2812B, 22, GRB>(leds[1], PIN_LEDS[1]);  // Ray 2  (idx 1, GPIO 22)
-  FastLED.addLeds<WS2812B, 18, GRB>(leds[2], PIN_LEDS[2]);  // Ray 3  (idx 2, GPIO 18)
-  FastLED.addLeds<WS2812B, 21, GRB>(leds[3], PIN_LEDS[3]);  // Ray 4  (idx 3, GPIO 21)
-  FastLED.addLeds<WS2812B, 13, GRB>(leds[4], PIN_LEDS[4]);  // Ray 5  (idx 4, GPIO 13)
-  FastLED.addLeds<WS2812B, 27, GRB>(leds[5], PIN_LEDS[5]);  // Ray 6  (idx 5, GPIO 27)
-  FastLED.addLeds<WS2812B,  4, GRB>(leds[6], PIN_LEDS[6]);  // Ray 7  (idx 6, GPIO  4, перепаян с GPIO23)
-  FastLED.addLeds<WS2812B, 14, GRB>(leds[7], PIN_LEDS[7]);  // Ray 8  (idx 7, GPIO 14)
-  FastLED.addLeds<WS2812B,  5, GRB>(leds[8], PIN_LEDS[8]);  // Inner circle (idx 8, GPIO 5, 64 LED)
-  FastLED.addLeds<WS2812B,  2, GRB>(leds[9], PIN_LEDS[9]);  // Outer circle (idx 9, GPIO 2, 150 LED)
+  // Большой круг стоит ПЕРВЫМ — получает RMT канал 0 (аппаратный)
+  FastLED.addLeds<WS2815, 23, GRB>(leds[0], PIN_LEDS[0]);  // Big circle   (idx 0, GPIO 23) ← RMT ch0 WS2815
+  FastLED.addLeds<WS2812B, 15, GRB>(leds[1], PIN_LEDS[1]);  // Long line    (idx 1, GPIO 15)
+  FastLED.addLeds<WS2812B, 14, GRB>(leds[2], PIN_LEDS[2]);  // Long line    (idx 2, GPIO 14)
+  FastLED.addLeds<WS2812B, 27, GRB>(leds[3], PIN_LEDS[3]);  // Long line    (idx 3, GPIO 27)
+  FastLED.addLeds<WS2812B, 32, GRB>(leds[4], PIN_LEDS[4]);  // Long line    (idx 4, GPIO 32)
+  FastLED.addLeds<WS2812B,  2, GRB>(leds[5], PIN_LEDS[5]);  // Long line    (idx 5, GPIO 2)
+  FastLED.addLeds<WS2812B, 21, GRB>(leds[6], PIN_LEDS[6]);  // Short line   (idx 6, GPIO 21)
+  FastLED.addLeds<WS2815, 22, GRB>(leds[7], PIN_LEDS[7]);  // Inner circle (idx 7, GPIO 22) ← WS2815
+  FastLED.addLeds<WS2812B, 18, GRB>(leds[8], PIN_LEDS[8]);  // Long line    (idx 8, GPIO 18) ← bit-bang
 
   FastLED.setBrightness(gBri);
   FastLED.clear(true);
-  Serial.println("[LED] 10 strips initialized");
-  Serial.println("[LED] Rays: 8x33 LED | Inner: 64 LED | Outer: 150 LED");
+  Serial.println("[LED] 9 strips initialized");
+  Serial.println("[LED] Rays: 6x110 LED | Short: 48 LED | Inner: 146 LED | Big: 600 LED");
+
 
   // Инициализация состояний блоков
   for (int i = 0; i <= TOTAL_BLOCKS; i++) {
@@ -263,6 +264,14 @@ void setup() {
     Serial.println(WiFi.softAPIP());
   }
 
+  // Запуск mDNS responder
+  if (MDNS.begin("rams-esp32")) {
+    Serial.println("[WIFI] mDNS responder started: http://rams-esp32.local");
+    MDNS.addService("http", "tcp", 80);
+  } else {
+    Serial.println("[WIFI] Error setting up MDNS responder!");
+  }
+
   // ===== CORS ЗАГОЛОВКИ =====
   // Обработка OPTIONS preflight запросов для CORS
   server.on("/api/status", HTTP_OPTIONS, []() {
@@ -332,7 +341,7 @@ void setup() {
     }
 
     html += "</div><script>";
-    html += "function cmd(b,a){fetch('/api/block?num='+b+'&action='+a+'&duration=2000',{method:'POST'}).then(()=>updateStatus())}";
+    html += "function cmd(b,a){fetch('/api/block?num='+b+'&action='+a+'&duration=10000',{method:'POST'}).then(()=>updateStatus())}";
     html += "function stopAll(){fetch('/api/stop',{method:'POST'}).then(()=>updateStatus())}";
     html += "function updateStatus(){fetch('/api/status').then(r=>r.json()).then(d=>{";
     html += "document.getElementById('active').textContent=d.active;";
@@ -615,64 +624,134 @@ void setup() {
   });
   */
 
+  // ===== TEST API (для отладки лент) =====
+  // GET /api/test?strip=0&from=0&to=32&r=255&g=0&b=0
+  // strip  — индекс ленты (0-9)
+  // from   — начальный адрес LED (0-149)
+  // to     — конечный адрес LED (0-149)
+  // r,g,b  — цвет (0-255)
+  server.on("/api/test", HTTP_OPTIONS, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    server.send(204);
+  });
+  server.on("/api/test", HTTP_GET, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    int strip = server.arg("strip").toInt();
+    int from  = server.arg("from").toInt();
+    int to    = server.arg("to").toInt();
+    int r     = server.arg("r").toInt();
+    int g     = server.arg("g").toInt();
+    int b     = server.arg("b").toInt();
+
+    // Validate
+    if (strip < 0 || strip >= NUM_STRIPS) {
+      server.send(400, "text/plain", "ERROR: strip must be 0-9");
+      return;
+    }
+    uint16_t maxLed = PIN_LEDS[strip];
+    if (from < 0)         from = 0;
+    if (to   < 0)         to   = 0;
+    if (from >= (int)maxLed) from = maxLed - 1;
+    if (to   >= (int)maxLed) to   = maxLed - 1;
+    if (from > to) { int tmp = from; from = to; to = tmp; }
+    if (r < 0) r = 0; if (r > 255) r = 255;
+    if (g < 0) g = 0; if (g > 255) g = 255;
+    if (b < 0) b = 0; if (b > 255) b = 255;
+
+    // Включаем тест-режим чтобы loop() не перезаписал результат
+    testMode = true;
+
+    bool noclear = server.arg("noclear") == "1";
+
+    // Если noclear=0 - очищаем все; если 1 - дополняем текущее состояние
+    if (!noclear) FastLED.clear();
+    for (int j = from; j <= to; j++) {
+      leds[strip][j] = CRGB(r, g, b);
+    }
+    FastLED.show();
+
+    Serial.printf("[TEST] strip=%d gpio=%d addr=%d-%d RGB(%d,%d,%d)\n",
+                  strip, PIN_GPIO[strip], from, to, r, g, b);
+
+    String json = "{\"ok\":true,\"strip\":" + String(strip) +
+                  ",\"gpio\":" + String(PIN_GPIO[strip]) +
+                  ",\"from\":" + String(from) +
+                  ",\"to\":"   + String(to) +
+                  ",\"leds\":" + String(maxLed) + "}";
+    server.send(200, "application/json", json);
+  });
+
+  // GET /api/clear — выключить все ленты
+  server.on("/api/clear", HTTP_OPTIONS, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    server.send(204);
+  });
+  server.on("/api/clear", HTTP_GET, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    testMode = false;  // Выходим из тест-режима
+    FastLED.clear(true);
+    Serial.println("[TEST] All LEDs cleared");
+    server.send(200, "application/json", "{\"ok\":true}");
+  });
+
+  // GET /api/info — информация о конфигурации лент
+  server.on("/api/info", HTTP_OPTIONS, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    server.send(204);
+  });
+  server.on("/api/info", HTTP_GET, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    String json = "{\"strips\":[";
+    const char* names[] = {"Ray 1","Ray 2","Ray 3","Ray 4","Ray 5","Ray 6","Short Line","Inner Circle","Big Circle"};
+    for (int i = 0; i < NUM_STRIPS; i++) {
+      if (i > 0) json += ",";
+      json += "{\"idx\":" + String(i) +
+              ",\"gpio\":" + String(PIN_GPIO[i]) +
+              ",\"leds\":" + String(PIN_LEDS[i]) +
+              ",\"name\":\"" + names[i] + "\"}";
+    }
+    json += "]}";
+    server.send(200, "application/json", json);
+  });
+
+  server.onNotFound([]() {
+    // Add CORS headers to avoid preflight issues blocking custom route diagnostics
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    
+    if (server.method() == HTTP_OPTIONS) {
+      server.send(204);
+      return;
+    }
+
+    String methodStr = "UNKNOWN";
+    if (server.method() == HTTP_GET) methodStr = "GET";
+    else if (server.method() == HTTP_POST) methodStr = "POST";
+    else if (server.method() == HTTP_OPTIONS) methodStr = "OPTIONS";
+    else if (server.method() == HTTP_PUT) methodStr = "PUT";
+    else if (server.method() == HTTP_DELETE) methodStr = "DELETE";
+
+    Serial.printf("[SERVER] NOT FOUND: %s %s\n", methodStr.c_str(), server.uri().c_str());
+    server.send(404, "text/plain", "Not Found");
+  });
+
   server.begin();
   Serial.println("[SERVER] Started on port 80");
-
-  // ===== mDNS SETUP =====
-  if (MDNS.begin(OTA_HOSTNAME)) {
-    Serial.println("[mDNS] Responder started");
-    Serial.printf("[mDNS] Hostname: %s.local\n", OTA_HOSTNAME);
-    MDNS.addService("http", "tcp", 80);  // Advertise HTTP service
-    Serial.println("[mDNS] HTTP service advertised");
-  } else {
-    Serial.println("[mDNS] ⚠️ Failed to start! OTA will not work.");
-  }
-
-  // ===== OTA UPDATE SETUP =====
-  ArduinoOTA.setHostname(OTA_HOSTNAME);
-  ArduinoOTA.setPassword(OTA_PASSWORD);
-
-  ArduinoOTA.onStart([]() {
-    String type;
-    if (ArduinoOTA.getCommand() == U_FLASH) {
-      type = "sketch";
-    } else {  // U_SPIFFS
-      type = "filesystem";
-    }
-    Serial.println("[OTA] Start updating " + type);
-
-    // Остановить все актуаторы перед обновлением
-    Mega1Serial.println("ALL:STOP");
-    Mega2Serial.println("ALL:STOP");
-    FastLED.clear(true);
-  });
-
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\n[OTA] Update complete!");
-  });
-
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("[OTA] Progress: %u%%\r", (progress / (total / 100)));
-  });
-
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("[OTA] Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) {
-      Serial.println("Auth Failed");
-    } else if (error == OTA_BEGIN_ERROR) {
-      Serial.println("Begin Failed");
-    } else if (error == OTA_CONNECT_ERROR) {
-      Serial.println("Connect Failed");
-    } else if (error == OTA_RECEIVE_ERROR) {
-      Serial.println("Receive Failed");
-    } else if (error == OTA_END_ERROR) {
-      Serial.println("End Failed");
-    }
-  });
-
-  ArduinoOTA.begin();
-  Serial.println("[OTA] Update service started");
-  Serial.printf("[OTA] Hostname: %s | Password: %s\n", OTA_HOSTNAME, OTA_PASSWORD);
 
   Serial.println("[READY] System initialized!\n");
 }
@@ -1041,7 +1120,6 @@ void fxMeteor() {
 // ============================================================================
 
 void loop() {
-  ArduinoOTA.handle();  // OTA обновления
   server.handleClient();
 
   // ===== ЧТЕНИЕ ОТВЕТОВ ОТ MEGA =====
@@ -1199,6 +1277,9 @@ void loop() {
 
   // ===== LED ЭФФЕКТЫ =====
   static uint32_t lastEffectFrame = 0;
+
+  // В тест-режиме не перезаписываем LED
+  if (testMode) return;
 
   if (gFx == 0) {
     // Статика - ничего не делаем, LED обновляются в lightUpBlock()

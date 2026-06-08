@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/esp32-api/:path*',
-        destination: 'http://192.168.110.65/api/:path*', // Proxy to ESP32 (STA network)
+        destination: 'http://RAMS-ESP32.local/api/:path*', // Proxy to ESP32 via mDNS
       },
     ];
   },
