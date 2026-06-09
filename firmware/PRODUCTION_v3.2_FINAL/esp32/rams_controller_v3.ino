@@ -58,7 +58,7 @@
 // pin:    23   15   14   27   32    2   21   22   18
 // desc:   Big  Long Long Long Long Long Shrt Innr Long
 // NOTE:   Big circle gets RMT ch0 (hardware). GPIO18 is 9th (bit-bang fallback).
-static const uint8_t  PIN_GPIO[NUM_STRIPS] = { 23,  15,  14,  27,  32,   2,  21,  22,  18 };
+static const uint8_t  PIN_GPIO[NUM_STRIPS] = {  5,  15,  14,  27,  32,   2,   4,  22,  18 };
 static const uint16_t PIN_LEDS[NUM_STRIPS] = {600, 110, 110, 110, 110, 110,  48, 146, 110 };
 
 
@@ -189,13 +189,13 @@ void setup() {
 
   // LED инициализация (из svetdiod-project)
   // Большой круг стоит ПЕРВЫМ — получает RMT канал 0 (аппаратный)
-  FastLED.addLeds<WS2815, 23, GRB>(leds[0], PIN_LEDS[0]);  // Big circle   (idx 0, GPIO 23) ← RMT ch0 WS2815
+  FastLED.addLeds<WS2815,  5, GRB>(leds[0], PIN_LEDS[0]);  // Big circle   (idx 0, GPIO 5) ← RMT ch0 WS2815
   FastLED.addLeds<WS2812B, 15, GRB>(leds[1], PIN_LEDS[1]);  // Long line    (idx 1, GPIO 15)
   FastLED.addLeds<WS2812B, 14, GRB>(leds[2], PIN_LEDS[2]);  // Long line    (idx 2, GPIO 14)
   FastLED.addLeds<WS2812B, 27, GRB>(leds[3], PIN_LEDS[3]);  // Long line    (idx 3, GPIO 27)
   FastLED.addLeds<WS2812B, 32, GRB>(leds[4], PIN_LEDS[4]);  // Long line    (idx 4, GPIO 32)
   FastLED.addLeds<WS2812B,  2, GRB>(leds[5], PIN_LEDS[5]);  // Long line    (idx 5, GPIO 2)
-  FastLED.addLeds<WS2812B, 21, GRB>(leds[6], PIN_LEDS[6]);  // Short line   (idx 6, GPIO 21)
+  FastLED.addLeds<WS2812B,  4, GRB>(leds[6], PIN_LEDS[6]);  // Short line   (idx 6, GPIO 4)
   FastLED.addLeds<WS2815, 22, GRB>(leds[7], PIN_LEDS[7]);  // Inner circle (idx 7, GPIO 22) ← WS2815
   FastLED.addLeds<WS2812B, 18, GRB>(leds[8], PIN_LEDS[8]);  // Long line    (idx 8, GPIO 18) ← bit-bang
 
