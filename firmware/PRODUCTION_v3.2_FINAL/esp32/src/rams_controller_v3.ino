@@ -4,20 +4,18 @@
  * Управляет 15 актуаторными блоками + LED зонами
  * - ESP32 → Serial1 (GPIO25/26) → Mega #1 (блоки 1-8)
  * - ESP32 → Serial2 (GPIO16/17) → Mega #2 (блоки 9-15)
- * - ESP32 → GPIO pins → WS2812B LEDs (10 strips)
  *
- * LED конфигурация (подтверждено физическим тестом):
+ * LED конфигурация (9 лент, подтверждено физическим тестом):
  *  idx  GPIO  Лента
- *   0    15   Ray 1
- *   1    14   Outer circle (150 LED)
- *   2    27   Inner circle (64 LED)
- *   3    23   Ray 4
- *   4    32   Ray 2
- *   5     2   Ray 3
- *   6     5   Ray 5
- *   7    21   Ray 8
- *   8    22   Ray 6
- *   9    18   Ray 7 (перепаян — проверить пайку!)
+ *   0    23   Большой круг (600 LED, WS2815)
+ *   1    15   Луч 1 (110 LED, WS2815)
+ *   2    14   Луч 2 (110 LED, WS2815)
+ *   3    27   Луч 3 (110 LED, WS2815)
+ *   4    32   Луч 4 (110 LED, WS2815)
+ *   5     2   Луч 5 (110 LED, WS2815)
+ *   6    21   Короткий луч (48 LED, WS2815)
+ *   7    22   Внутренний круг (146 LED, WS2815)
+ *   8    18   Луч 6 (110 LED, WS2815)
  *
  * Логика: Блок 1 UP → Актуаторы 1 UP + LED зона 1 ON
  *
@@ -29,7 +27,11 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
-#define FASTLED_ALLOW_INTERRUPTS 0
+// ВАЖНО: FASTLED_ALLOW_INTERRUPTS 0 был УБРАН!
+// На ESP32 RMT-драйвер использует аппаратные прерывания для дозаполнения
+// буфера при передаче данных на большое кол-во LED (600 шт).
+// С FASTLED_ALLOW_INTERRUPTS 0 прерывания блокируются → мусор в ленте!
+#define FASTLED_RMT_MAX_CHANNELS 8   // Явно задаем макс. кол-во RMT каналов
 #include <FastLED.h>
 #include "ACTUATOR_CONFIG.h"
 
@@ -674,6 +676,7 @@ void setup() {
       leds[strip][j] = CRGB(r, g, b);
     }
     FastLED.show();
+    delay(1);  // WS2815 latch: минимум 280µs тишины чтобы кадр залатчился
 
     Serial.printf("[TEST] strip=%d gpio=%d addr=%d-%d RGB(%d,%d,%d)\n",
                   strip, PIN_GPIO[strip], from, to, r, g, b);
@@ -1115,11 +1118,110 @@ void fxMeteor() {
   }
 }
 
+/**
+ * Эффект 8: Строб (Strobe)
+ */
+void fxStrobe() {
+  static bool strobeOn = false;
+  static uint32_t lastStrobe = 0;
+  uint32_t now = millis();
+  uint32_t period = map(gSpd, 0, 255, 200, 30);
+
+  if (now - lastStrobe >= period) {
+    lastStrobe = now;
+    strobeOn = !strobeOn;
+  }
+
+  CRGB c = strobeOn ? CRGB(gR, gG, gB) : CRGB::Black;
+  for (int s = 0; s < NUM_STRIPS; s++) {
+    fill_solid(leds[s], PIN_LEDS[s], c);
+  }
+}
+
+/**
+ * Эффект 9: Цветное заполнение (Color Wipe)
+ */
+void fxColorWipe() {
+  static uint32_t pos = 0;
+  static uint32_t last = 0;
+  uint32_t now = millis();
+
+  if (now - last >= (uint32_t)map(gSpd, 0, 255, 50, 5)) {
+    last = now;
+    pos++;
+  }
+
+  for (int s = 0; s < NUM_STRIPS; s++) {
+    uint16_t n = PIN_LEDS[s];
+    uint32_t cur = pos % (n * 2);
+    for (uint16_t j = 0; j < n; j++) {
+      leds[s][j] = (j <= cur % n) ? CRGB(gR, gG, gB) : CRGB::Black;
+    }
+  }
+}
+
+/**
+ * Эффект 10: Мерцание звёзд (Twinkle)
+ */
+void fxTwinkle() {
+  for (int s = 0; s < NUM_STRIPS; s++) {
+    for (uint16_t j = 0; j < PIN_LEDS[s]; j++) {
+      leds[s][j].nscale8(230);
+    }
+  }
+  uint8_t count = map(gSpd, 0, 255, 1, 8);
+  for (int k = 0; k < count; k++) {
+    int s = random8(NUM_STRIPS);
+    uint16_t p = random16() % PIN_LEDS[s];
+    leds[s][p] = CRGB(gR, gG, gB);
+    leds[s][p].nscale8(random8(100, 255));
+  }
+}
+
+/**
+ * Эффект 11: Рябь — волна из центра
+ */
+void fxRipple() {
+  static uint16_t phase = 0;
+  phase += map(gSpd, 0, 255, 100, 2000);
+
+  for (int s = 0; s < NUM_STRIPS; s++) {
+    uint16_t n = PIN_LEDS[s];
+    uint16_t center = n / 2;
+    for (uint16_t j = 0; j < n; j++) {
+      int dist = abs((int)j - (int)center);
+      uint8_t wave = sin8((uint8_t)(dist * 255 / (center + 1)) + (uint8_t)(phase >> 8));
+      leds[s][j].setRGB(gR, gG, gB);
+      leds[s][j].nscale8(wave);
+    }
+  }
+}
+
+/**
+ * Эффект 12: Дыхание (Breathing) — плавный вдох/выдох всех лент
+ */
+void fxBreathing() {
+  uint8_t bpm = map(gSpd, 0, 255, 5, 30);
+  uint8_t brightness = beatsin8(bpm, 5, 255);
+  CRGB c(gR, gG, gB);
+  c.nscale8(brightness);
+  for (int s = 0; s < NUM_STRIPS; s++) {
+    fill_solid(leds[s], PIN_LEDS[s], c);
+  }
+}
+
 // ============================================================================
 // MAIN LOOP - СТИЛЬ DroneControl.ino
 // ============================================================================
 
 void loop() {
+  // Тест-режим: немедленный выход из loop() чтобы
+  // ничто не перезаписало LED, установленные через /api/test
+  if (testMode) {
+    server.handleClient();
+    return;
+  }
+
   server.handleClient();
 
   // ===== ЧТЕНИЕ ОТВЕТОВ ОТ MEGA =====
@@ -1289,13 +1391,18 @@ void loop() {
       lastEffectFrame = now;
 
       switch (gFx) {
-        case 1: fxPulse();   break;
-        case 2: fxRainbow(); break;
-        case 3: fxChase();   break;
-        case 4: fxSparkle(); break;
-        case 5: fxWave();    break;
-        case 6: fxFire();    break;
-        case 7: fxMeteor();  break;
+        case 1: fxPulse();    break;
+        case 2: fxRainbow();  break;
+        case 3: fxChase();    break;
+        case 4: fxSparkle();  break;
+        case 5: fxWave();     break;
+        case 6: fxFire();     break;
+        case 7: fxMeteor();   break;
+        case 8: fxStrobe();   break;
+        case 9: fxColorWipe();break;
+        case 10: fxTwinkle(); break;
+        case 11: fxRipple();  break;
+        case 12: fxBreathing();break;
       }
 
       FastLED.show();
