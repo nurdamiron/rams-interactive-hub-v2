@@ -73,6 +73,16 @@ uint8_t gSpd = 128; // Скорость эффекта (0-255)
 
 #define FPS 50  // Частота обновления эффектов
 
+void showLEDs() {
+  // Выводим данные на каждую ленту последовательно, чтобы избежать взаимных помех RMT и bit-bang
+  for (int s = 0; s < NUM_STRIPS; s++) {
+    FastLED[s].showLeds(gBri);
+    // 30 микросекунд на светодиод + 300 микросекунд latch
+    uint32_t waitUs = (PIN_LEDS[s] * 30) + 300;
+    delayMicroseconds(waitUs);
+  }
+}
+
 // Разделение луча на внутреннюю/внешнюю части
 #define RAY_IN_START   0
 #define RAY_IN_COUNT  18   // 0-17 (18 LED)
@@ -547,7 +557,7 @@ void setup() {
 
     gBri = v;
     FastLED.setBrightness(gBri);
-    FastLED.show();
+    showLEDs();
     testMode = false;  // Выходим из тест-режима
 
     Serial.printf("[API] LED brightness set to %d\n", gBri);
@@ -693,7 +703,7 @@ void setup() {
         leds[strip][j] = CRGB(r, g, b);
       }
     }
-    FastLED.show();
+    showLEDs();
     delay(1);  // WS2815 latch: минимум 280µs тишины чтобы кадр залатчился
 
     if (allStrips) {
@@ -852,7 +862,7 @@ void lightUpBlock(int blockNum) {
     Serial.printf("[LED] Block %d INNER ON (sector %d, rays %d-%d + both circles)\n", blockNum, sector, L, R);
   }
 
-  FastLED.show();
+  showLEDs();
 }
 
 /**
@@ -921,7 +931,7 @@ void turnOffBlock(int blockNum) {
     }
   }
 
-  FastLED.show();
+  showLEDs();
   Serial.printf("[LED] Block %d OFF\n", blockNum);
 }
 
@@ -1422,7 +1432,7 @@ void loop() {
           }
         }
 
-        FastLED.show();
+        showLEDs();
       }
     }
   }
@@ -1455,7 +1465,7 @@ void loop() {
         case 12: fxBreathing();break;
       }
 
-      FastLED.show();
+      showLEDs();
     }
   }
 }
