@@ -465,7 +465,7 @@ void setup() {
     server.send(200, "text/plain", "OK");
   });
 
-  server.on("/api/color", HTTP_POST, []() {
+  server.on("/api/color", HTTP_ANY, []() {
     // CORS заголовки
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -488,25 +488,26 @@ void setup() {
     gR = r;
     gG = g;
     gB = b;
+    testMode = false;  // Выходим из тест-режима
 
     Serial.printf("[API] LED color set to RGB(%d, %d, %d)\n", r, g, b);
 
     server.send(200, "text/plain", "OK");
   });
 
-  server.on("/api/effect", HTTP_POST, []() {
+  server.on("/api/effect", HTTP_ANY, []() {
     // CORS заголовки
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
 
-    // Получить ID эффекта и скорость
-    int id = server.arg("id").toInt();
-    int speed = server.arg("speed").toInt();
+    // Получить ID эффекта и скорость (поддерживаем id/v и speed/spd)
+    int id = server.hasArg("id") ? server.arg("id").toInt() : (server.hasArg("v") ? server.arg("v").toInt() : 0);
+    int speed = server.hasArg("speed") ? server.arg("speed").toInt() : (server.hasArg("spd") ? server.arg("spd").toInt() : -1);
 
     // Валидация
     if (id < 0) id = 0;
-    if (id > 7) id = 7;
+    if (id > 12) id = 12;
 
     if (speed >= 0 && speed <= 255) {
       gSpd = speed;
@@ -514,6 +515,7 @@ void setup() {
 
     // Обновить эффект
     gFx = id;
+    testMode = false;  // Выходим из тест-режима
 
     // Очистить heat buffer при переключении на Fire
     if (id == 6) {
@@ -533,7 +535,7 @@ void setup() {
     server.send(204);
   });
 
-  server.on("/api/bri", HTTP_POST, []() {
+  server.on("/api/bri", HTTP_ANY, []() {
     // CORS заголовки
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -546,6 +548,7 @@ void setup() {
     gBri = v;
     FastLED.setBrightness(gBri);
     FastLED.show();
+    testMode = false;  // Выходим из тест-режима
 
     Serial.printf("[API] LED brightness set to %d\n", gBri);
     server.send(200, "text/plain", "OK");
@@ -559,7 +562,7 @@ void setup() {
     server.send(204);
   });
 
-  server.on("/api/spd", HTTP_POST, []() {
+  server.on("/api/spd", HTTP_ANY, []() {
     // CORS заголовки
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -643,50 +646,70 @@ void setup() {
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
 
-    int strip = server.arg("strip").toInt();
+    String stripArg = server.arg("strip");
+    bool allStrips = (stripArg == "all" || stripArg == "-1");
+    int strip = allStrips ? 0 : stripArg.toInt();
     int from  = server.arg("from").toInt();
     int to    = server.arg("to").toInt();
     int r     = server.arg("r").toInt();
     int g     = server.arg("g").toInt();
     int b     = server.arg("b").toInt();
 
-    // Validate
-    if (strip < 0 || strip >= NUM_STRIPS) {
-      server.send(400, "text/plain", "ERROR: strip must be 0-9");
-      return;
-    }
-    uint16_t maxLed = PIN_LEDS[strip];
-    if (from < 0)         from = 0;
-    if (to   < 0)         to   = 0;
-    if (from >= (int)maxLed) from = maxLed - 1;
-    if (to   >= (int)maxLed) to   = maxLed - 1;
-    if (from > to) { int tmp = from; from = to; to = tmp; }
     if (r < 0) r = 0; if (r > 255) r = 255;
     if (g < 0) g = 0; if (g > 255) g = 255;
     if (b < 0) b = 0; if (b > 255) b = 255;
+
+    // Validate if not allStrips
+    if (!allStrips && (strip < 0 || strip >= NUM_STRIPS)) {
+      server.send(400, "text/plain", "ERROR: strip must be 0-8 or 'all'");
+      return;
+    }
 
     // Включаем тест-режим чтобы loop() не перезаписал результат
     testMode = true;
 
     bool noclear = server.arg("noclear") == "1";
-
-    // Если noclear=0 - очищаем все; если 1 - дополняем текущее состояние
     if (!noclear) FastLED.clear();
-    for (int j = from; j <= to; j++) {
-      leds[strip][j] = CRGB(r, g, b);
+
+    if (allStrips) {
+      for (int s = 0; s < NUM_STRIPS; s++) {
+        uint16_t maxLed = PIN_LEDS[s];
+        int s_from = server.hasArg("from") ? server.arg("from").toInt() : 0;
+        int s_to = server.hasArg("to") ? server.arg("to").toInt() : (maxLed - 1);
+        if (s_from < 0) s_from = 0;
+        if (s_to >= (int)maxLed) s_to = maxLed - 1;
+        for (int j = s_from; j <= s_to; j++) {
+          leds[s][j] = CRGB(r, g, b);
+        }
+      }
+    } else {
+      uint16_t maxLed = PIN_LEDS[strip];
+      if (from < 0)         from = 0;
+      if (to   < 0)         to   = 0;
+      if (from >= (int)maxLed) from = maxLed - 1;
+      if (to   >= (int)maxLed) to   = maxLed - 1;
+      if (from > to) { int tmp = from; from = to; to = tmp; }
+      for (int j = from; j <= to; j++) {
+        leds[strip][j] = CRGB(r, g, b);
+      }
     }
     FastLED.show();
     delay(1);  // WS2815 latch: минимум 280µs тишины чтобы кадр залатчился
 
-    Serial.printf("[TEST] strip=%d gpio=%d addr=%d-%d RGB(%d,%d,%d)\n",
-                  strip, PIN_GPIO[strip], from, to, r, g, b);
-
-    String json = "{\"ok\":true,\"strip\":" + String(strip) +
-                  ",\"gpio\":" + String(PIN_GPIO[strip]) +
-                  ",\"from\":" + String(from) +
-                  ",\"to\":"   + String(to) +
-                  ",\"leds\":" + String(maxLed) + "}";
-    server.send(200, "application/json", json);
+    if (allStrips) {
+      Serial.printf("[TEST] ALL STRIPS RGB(%d,%d,%d)\n", r, g, b);
+      server.send(200, "application/json", "{\"ok\":true,\"strip\":\"all\"}");
+    } else {
+      uint16_t maxLed = PIN_LEDS[strip];
+      Serial.printf("[TEST] strip=%d gpio=%d addr=%d-%d RGB(%d,%d,%d)\n",
+                    strip, PIN_GPIO[strip], from, to, r, g, b);
+      String json = "{\"ok\":true,\"strip\":" + String(strip) +
+                    ",\"gpio\":" + String(PIN_GPIO[strip]) +
+                    ",\"from\":" + String(from) +
+                    ",\"to\":"   + String(to) +
+                    ",\"leds\":" + String(maxLed) + "}";
+      server.send(200, "application/json", json);
+    }
   });
 
   // GET /api/clear — выключить все ленты
@@ -913,6 +936,21 @@ void fxPulse() {
   CRGB c(gR, gG, gB);
   c.nscale8(beatsin8(map(gSpd, 0, 255, 8, 60), 15, 255));
 
+  bool anyActiveLed = false;
+  for (int i = 1; i <= TOTAL_BLOCKS; i++) {
+    if (ledStates[i]) {
+      anyActiveLed = true;
+      break;
+    }
+  }
+
+  if (!anyActiveLed) {
+    for (int s = 0; s < NUM_STRIPS; s++) {
+      fill_solid(leds[s], PIN_LEDS[s], c);
+    }
+    return;
+  }
+
   // Применить к активным блокам (проверяем LED состояние, не актуатор!)
   for (int i = 1; i <= TOTAL_BLOCKS; i++) {
     if (!ledStates[i]) continue;  // ✅ Проверяем LED состояние
@@ -967,6 +1005,18 @@ void fxRainbow() {
     for (uint16_t j = 0; j < PIN_LEDS[s]; j++) {
       leds[s][j] = CHSV(hue + j * 3 + s * 25, 255, 255);
     }
+  }
+
+  bool anyActiveLed = false;
+  for (int i = 1; i <= TOTAL_BLOCKS; i++) {
+    if (ledStates[i]) {
+      anyActiveLed = true;
+      break;
+    }
+  }
+
+  if (!anyActiveLed) {
+    return; // Если нет активных блоков, радуга идет по всем лентам
   }
 
   // Применить маску активных блоков (проверяем LED состояние!)
