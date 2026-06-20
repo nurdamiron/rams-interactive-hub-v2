@@ -1617,7 +1617,7 @@ void fxMeteor() {
   static uint32_t last = 0;
   uint32_t now = millis();
 
-  if (now - last >= (uint32_t)map(gSpd, 0, 255, 80, 10)) {
+  if (now - last >= (uint32_t)map(gSpd, 0, 255, 40, 2)) {
     last = now;
     pos++;
   }
