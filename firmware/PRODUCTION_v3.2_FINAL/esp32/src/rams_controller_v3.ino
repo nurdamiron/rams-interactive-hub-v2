@@ -178,17 +178,17 @@ void showLEDs() {
     ));
   }
 
-  // 2. Отправляем данные на ленты (Show)
+  // 2. Отправляем данные на ленты (Show) с проверкой готовности
   if (ENABLE_BIG_CIRCLE_ON_BLOCKS || ENABLE_BIG_CIRCLE_ON_EFFECTS) {
-    strip0.Show();
+    if (strip0.CanShow()) strip0.Show();
   }
-  strip1.Show();
-  strip2.Show();
-  strip3.Show();
-  strip4.Show();
-  strip5.Show();
-  strip7.Show();
-  strip8.Show();
+  if (strip1.CanShow()) strip1.Show();
+  if (strip2.CanShow()) strip2.Show();
+  if (strip3.CanShow()) strip3.Show();
+  if (strip4.CanShow()) strip4.Show();
+  if (strip5.CanShow()) strip5.Show();
+  if (strip7.CanShow()) strip7.Show();
+  if (strip8.CanShow()) strip8.Show();
 }
 
 // Разделение луча на внутреннюю/внешнюю части
@@ -1800,11 +1800,12 @@ void loop() {
   }
 
   // Если недавно был веб-запрос, пропускаем шаг анимации и вывод на светодиоды.
-  // Это предотвращает мерцание из-за прерываний Wi-Fi во время сетевого обмена.
-  // Снижено с 250мс до 50мс для обеспечения высокой плавности анимации (микрофризы устранены).
+  // (Отключено для идеальной плавности при использовании преобразователей уровней и RMT)
+  /*
   if (millis() - lastRequestTime < 50) {
     return;
   }
+  */
 
   // ===== ЧТЕНИЕ ОТВЕТОВ ОТ MEGA =====
   if (Mega1Serial.available()) {
