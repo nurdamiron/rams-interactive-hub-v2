@@ -71,7 +71,7 @@ const bool ENABLE_BIG_CIRCLE_ON_EFFECTS = true; // true = большая лен�
 // desc:   Big  Ray1 Ray2 Ray3 Ray4  Ray5 Shrt Innr Ray6
 // NOTE:   idx6=nullptr (Short chained after Ray 6 on GPIO18). GPIO19=Big Circle WS2815.
 static const uint8_t  PIN_GPIO[NUM_STRIPS] = { 19,   4,  15,  23,  32,   2,  18,  27,  18 };
-static const uint16_t PIN_LEDS[NUM_STRIPS] = {530, 110, 110, 110, 110, 110,  49, 146, 110 };
+static const uint16_t PIN_LEDS[NUM_STRIPS] = {531, 110, 110, 110, 110, 110,  49, 147, 110 };
 
 
 static CRGB leds[NUM_STRIPS][MAX_LEDS];
@@ -79,13 +79,13 @@ static uint8_t heat[NUM_STRIPS][MAX_LEDS];  // Для эффекта Fire
 static CRGB ray6AndShortCombined[159];       // Объединенный буфер для Луча 6 (110) + Короткой линии (49)
 
 // Инициализируем NeoPixelBus с использованием аппаратных RMT каналов 0-7
-NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt0Ws2812xMethod> strip0(530, 19);
+NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt0Ws2812xMethod> strip0(531, 19);
 NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt1Ws2812xMethod> strip1(110, 4);
 NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt2Ws2812xMethod> strip2(110, 15);
 NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt3Ws2812xMethod> strip3(110, 23);
 NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt4Ws2812xMethod> strip4(110, 32);
 NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt5Ws2812xMethod> strip5(110, 2);
-NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt6Ws2812xMethod> strip7(146, 27);
+NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt6Ws2812xMethod> strip7(147, 27);
 NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt7Ws2812xMethod> strip8(159, 18);
 
 // Глобальные LED параметры
@@ -104,9 +104,9 @@ void showLEDs() {
 
   // 1. Копируем и масштабируем цвета в буферы NeoPixelBus
   
-  // Strip 0: Big Circle (530 LED, GPIO 19, RMT 0)
+  // Strip 0: Big Circle (531 LED, GPIO 19, RMT 0)
   if (ENABLE_BIG_CIRCLE_ON_BLOCKS || ENABLE_BIG_CIRCLE_ON_EFFECTS) {
-    for (uint16_t i = 0; i < 530; i++) {
+    for (uint16_t i = 0; i < 531; i++) {
       strip0.SetPixelColor(i, RgbColor(
         (uint16_t)leds[0][i].r * gBri / 255,
         (uint16_t)leds[0][i].g * gBri / 255,
@@ -160,8 +160,8 @@ void showLEDs() {
     ));
   }
 
-  // Strip 7: Inner Circle (146 LED, GPIO 27, RMT 6)
-  for (uint16_t i = 0; i < 146; i++) {
+  // Strip 7: Inner Circle (147 LED, GPIO 27, RMT 6)
+  for (uint16_t i = 0; i < 147; i++) {
     strip7.SetPixelColor(i, RgbColor(
       (uint16_t)leds[7][i].r * gBri / 255,
       (uint16_t)leds[7][i].g * gBri / 255,
