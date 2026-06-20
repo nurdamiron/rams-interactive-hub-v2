@@ -1168,6 +1168,7 @@ app.whenReady().then(() => {
   let ledRainbowTimer = null;
   let ledRainbowHue = 0;
   let ledAutoCycleIndex = 0;
+  let esp32AutoModeActive = false;
   const LED_MODE_ORDER = ['WAVE', 'PULSE', 'SPARKLE', 'FIRE'];
   const modeToFwId = {
     'WAVE': 3, 'PULSE': 4, 'SPARKLE': 5, 'FIRE': 6,
@@ -1213,35 +1214,26 @@ app.whenReady().then(() => {
   ipcMain.handle('hardware-led-mode', async (_event, mode) => {
     const upperMode = mode.toUpperCase();
 
-    // Handle AUTO mode — effects + rainbow color cycling
+    // Handle AUTO mode — use ESP32's native auto mode (cycles colors + effects)
     if (upperMode === 'AUTO') {
-      if (ledAutoCycleTimer) {
-        stopLedAutoCycle();
+      stopLedAutoCycle();
+      if (esp32AutoModeActive) {
+        esp32AutoModeActive = false;
+        log('[LED] Disabling native ESP32 autoplay (switching to Wave static)');
+        await sendHttpRequest('/api/effect', { id: 3 }); // Wave as fallback, disables autoMode
         return { autoCycle: false };
+      } else {
+        esp32AutoModeActive = true;
+        log('[LED] Enabling native ESP32 autoplay (cycling effects + 5 custom colors)');
+        await sendHttpRequest('/api/bri', { v: 200 });
+        await sendHttpRequest('/api/auto');
+        return { autoCycle: true };
       }
-      log('[LED] Auto-cycle started (60s interval) + rainbow colors');
-      ledAutoCycleIndex = 0;
-
-      // Start rainbow color cycling (smooth hue rotation)
-      await sendHttpRequest('/api/bri', { v: 200 });
-      await sendHttpRequest('/api/effect', { id: 3 }); // Wave as base
-      startRainbowCycle();
-
-      // Switch effects every 60 seconds
-      const cycleFn = async () => {
-        const modeName = LED_MODE_ORDER[ledAutoCycleIndex % LED_MODE_ORDER.length];
-        const fwId = modeToFwId[modeName];
-        log(`[LED AutoCycle] → ${modeName} (FW id=${fwId}) + rainbow`);
-        await sendHttpRequest('/api/effect', { id: fwId });
-        ledAutoCycleIndex++;
-      };
-      await cycleFn();
-      ledAutoCycleTimer = setInterval(cycleFn, 60 * 1000);
-      return { autoCycle: true };
     }
 
     // Handle RAINBOW mode (manual)
     if (upperMode === 'RAINBOW') {
+      esp32AutoModeActive = false;
       stopLedAutoCycle();
       log('[LED] Rainbow mode — wave + color cycling');
       await sendHttpRequest('/api/bri', { v: 200 });
@@ -1251,6 +1243,7 @@ app.whenReady().then(() => {
     }
 
     // Any other mode stops auto-cycle and rainbow
+    esp32AutoModeActive = false;
     stopLedAutoCycle();
 
     // Handle OFF — just set brightness to 0
@@ -1273,6 +1266,7 @@ app.whenReady().then(() => {
     const params = { id: effectId };
     if (speed !== undefined && speed !== null) params.speed = speed;
     log(`[LED] Effect FW:${effectId}${speed !== undefined ? ` speed=${speed}` : ''}`);
+    esp32AutoModeActive = false;
     stopLedAutoCycle(); // manual effect change stops auto-cycle
     await sendHttpRequest('/api/bri', { v: 200 }); // ensure brightness is on
     return sendHttpRequest('/api/effect', params);

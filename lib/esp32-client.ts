@@ -197,6 +197,20 @@ export class ESP32Client {
   }
 
   /**
+   * Включить автоматический режим (autoplay) на ESP32
+   */
+  async setLEDAuto(): Promise<void> {
+    const url = `/api/auto`;
+    console.log(`[ESP32Client] POST ${this.baseUrl}${url}`);
+    const response = await this.fetchWithRetry(url, { method: "POST" });
+    if (!response.ok) {
+      console.error(`[ESP32Client] ❌ LED auto failed`);
+      throw new Error(`Failed to set LED auto mode: ${response.statusText}`);
+    }
+    console.log(`[ESP32Client] ✅ LED auto mode enabled`);
+  }
+
+  /**
    * Выключить LED (brightness=0)
    */
   async setLEDOff(): Promise<void> {

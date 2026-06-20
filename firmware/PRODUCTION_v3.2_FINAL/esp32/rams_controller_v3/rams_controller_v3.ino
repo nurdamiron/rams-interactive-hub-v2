@@ -825,6 +825,36 @@ void setup() {
     server.send(200, "text/plain", "OK");
   });
 
+  server.on("/api/auto", HTTP_ANY, []() {
+    lastRequestTime = millis();
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    if (server.method() == HTTP_OPTIONS) {
+      server.send(204);
+      return;
+    }
+
+    autoMode = true;
+    testMode = false;
+
+    // Сразу применить первый эффект и цвет из списка, чтобы не ждать минуту
+    CRGB nextColor = AUTO_COLORS[autoColorIndex];
+    targetR = nextColor.r;
+    targetG = nextColor.g;
+    targetB = nextColor.b;
+    gFx = AUTO_EFFECTS[autoEffectIndex];
+
+    // Сдвинуть индексы
+    autoColorIndex = (autoColorIndex + 1) % AUTO_COLORS_COUNT;
+    autoEffectIndex = (autoEffectIndex + 1) % AUTO_EFFECTS_COUNT;
+    lastAutoChange = millis();
+
+    Serial.printf("[API] AutoMode enabled: Effect %d, target color RGB(%d,%d,%d)\n", gFx, targetR, targetG, targetB);
+    server.send(200, "text/plain", "OK");
+  });
+
   // OPTIONS для /api/bri
   server.on("/api/bri", HTTP_OPTIONS, []() {
     server.sendHeader("Access-Control-Allow-Origin", "*");
