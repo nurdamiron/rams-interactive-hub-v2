@@ -124,106 +124,106 @@ const BlockConfig BLOCK_CONFIGS[TOTAL_BLOCKS] = {
   {
     .blockNum = 1,            // NOMAD
     .megaNum = 1,
-    .actuator1 = {22, 23},
-    .actuator2 = {24, 25},
+    .actuator1 = {46, 47},
+    .actuator2 = {49, 48},
     .actuator3 = {0, 0},
     .actuatorCount = 2
   },
   {
     .blockNum = 2,            // GRANDE VIE
     .megaNum = 1,
-    .actuator1 = {26, 27},
-    .actuator2 = {28, 29},
+    .actuator1 = {27, 26},
+    .actuator2 = {29, 28},
     .actuator3 = {0, 0},
     .actuatorCount = 2
   },
   {
-    .blockNum = 3,            // KERUEN CITY
+    .blockNum = 3,            // RAMS CITY ALMATY
     .megaNum = 1,
-    .actuator1 = {30, 31},
-    .actuator2 = {32, 33},
+    .actuator1 = {23, 22},
+    .actuator2 = {25, 24},
     .actuator3 = {0, 0},
     .actuatorCount = 2
   },
   {
-    .blockNum = 4,            // RAMS GARDEN BAHCELIEVLER
+    .blockNum = 4,            // KERUEN CITY
     .megaNum = 1,
-    .actuator1 = {34, 35},
-    .actuator2 = {36, 37},
+    .actuator1 = {35, 34},
+    .actuator2 = {37, 36},
     .actuator3 = {0, 0},
     .actuatorCount = 2
   },
   {
-    .blockNum = 5,            // RAMS RESORT BODRUM
+    .blockNum = 5,            // HYATT REGENCY
     .megaNum = 1,
-    .actuator1 = {38, 39},
-    .actuator2 = {40, 41},
+    .actuator1 = {31, 30},
+    .actuator2 = {33, 32},
     .actuator3 = {0, 0},
     .actuatorCount = 2
   },
   {
-    .blockNum = 6,            // RAMS CITY HALIC 2
+    .blockNum = 6,            // RAMS GARDEN BAHCELIEVLER
     .megaNum = 1,
-    .actuator1 = {42, 43},
-    .actuator2 = {44, 45},
+    .actuator1 = {43, 42},
+    .actuator2 = {45, 44},
     .actuator3 = {0, 0},
     .actuatorCount = 2
   },
   {
-    .blockNum = 7,            // PARK HOUSE MASLAK (3 АКТУАТОРА!)
+    .blockNum = 7,            // BAITEREK SCHOOL
     .megaNum = 1,
-    .actuator1 = {46, 47},
-    .actuator2 = {48, 49},
-    .actuator3 = {50, 51},
-    .actuatorCount = 3
+    .actuator1 = {39, 38},
+    .actuator2 = {41, 40},
+    .actuator3 = {0, 0},
+    .actuatorCount = 2
   },
 
   // ===== MEGA #2 - Блоки 8-13 =====
   {
-    .blockNum = 8,            // SAKURA
+    .blockNum = 8,            // RAMS RESORT BODRUM
     .megaNum = 2,
-    .actuator1 = {22, 23},
-    .actuator2 = {24, 25},
+    .actuator1 = {47, 46},
+    .actuator2 = {49, 48},
     .actuator3 = {0, 0},
     .actuatorCount = 2
   },
   {
-    .blockNum = 9,            // RAMS CITY HALIC 1
+    .blockNum = 9,            // RAMS CITY GAZIANTEP
     .megaNum = 2,
-    .actuator1 = {26, 27},
-    .actuator2 = {28, 29},
+    .actuator1 = {43, 42},
+    .actuator2 = {45, 44},
     .actuator3 = {0, 0},
     .actuatorCount = 2
   },
   {
-    .blockNum = 10,           // RAMS CITY GAZIANTEP
+    .blockNum = 10,           // RAMS CITY HALIC 2
     .megaNum = 2,
-    .actuator1 = {30, 31},
-    .actuator2 = {32, 33},
+    .actuator1 = {35, 34},
+    .actuator2 = {37, 36},
     .actuator3 = {0, 0},
     .actuatorCount = 2
   },
   {
-    .blockNum = 11,           // BAITEREK SCHOOL
+    .blockNum = 11,           // RAMS CITY HALIC 1
     .megaNum = 2,
-    .actuator1 = {34, 35},
-    .actuator2 = {36, 37},
+    .actuator1 = {39, 38},
+    .actuator2 = {41, 40},
     .actuator3 = {0, 0},
     .actuatorCount = 2
   },
   {
-    .blockNum = 12,           // HYATT REGENCY
+    .blockNum = 12,           // PARK HOUSE MASLAK (3 актуатора)
     .megaNum = 2,
-    .actuator1 = {38, 39},
-    .actuator2 = {40, 41},
-    .actuator3 = {0, 0},
-    .actuatorCount = 2
+    .actuator1 = {23, 22},
+    .actuator2 = {26, 27},
+    .actuator3 = {25, 24},
+    .actuatorCount = 3
   },
   {
-    .blockNum = 13,           // RAMS CITY ALMATY
+    .blockNum = 13,           // SAKURA
     .megaNum = 2,
-    .actuator1 = {42, 43},
-    .actuator2 = {44, 45},
+    .actuator1 = {31, 30},
+    .actuator2 = {33, 32},
     .actuator3 = {0, 0},
     .actuatorCount = 2
   }

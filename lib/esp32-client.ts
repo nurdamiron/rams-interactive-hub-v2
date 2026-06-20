@@ -43,7 +43,12 @@ export class ESP32Client {
 
   constructor(config: ESP32Config) {
     const { host, port = 80, timeout = 5000 } = config;
-    this.baseUrl = `http://${host}:${port}`;
+    if (host === '192.168.110.65') {
+      console.warn(`[ESP32Client] ⚠️ Blocked connection to forbidden IP: 192.168.110.65. Falling back to rams-esp32.local`);
+      this.baseUrl = `http://rams-esp32.local:${port}`;
+    } else {
+      this.baseUrl = `http://${host}:${port}`;
+    }
     this.timeout = timeout;
   }
 
@@ -338,6 +343,7 @@ export async function discoverESP32(subnet: string = "192.168.110", port: number
 
     for (let i = batch + 1; i <= Math.min(batch + 20, 254); i++) {
       const ip = `${subnet}.${i}`;
+      if (ip === '192.168.110.65') continue; // ⚠️ Block/skip the other stand's ESP32
       promises.push(
         fetch(`http://${ip}:${port}/api/status`, { signal: AbortSignal.timeout(1500) })
           .then(async (res) => {

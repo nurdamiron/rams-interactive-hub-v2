@@ -483,14 +483,11 @@ export function ActuatorControl({ onClose, className = "" }: ActuatorControlProp
                 <h3 className="text-lg font-bold text-white mb-4">Быстрый выбор цвета</h3>
                 <div className="flex gap-3">
                   {[
-                    { name: "Красный", color: "#FF0000" },
-                    { name: "Зеленый", color: "#00FF00" },
-                    { name: "Синий", color: "#0000FF" },
-                    { name: "Циан", color: "#00FFFF" },
-                    { name: "Пурпурный", color: "#FF00FF" },
-                    { name: "Желтый", color: "#FFFF00" },
+                    { name: "Фиолетовый", color: "#B400FF" },
                     { name: "Белый", color: "#FFFFFF" },
-                    { name: "Оранжевый", color: "#FF6600" },
+                    { name: "Голубой", color: "#0096FF" },
+                    { name: "Мятный", color: "#80FF80" },
+                    { name: "Теплый белый", color: "#FFB428" },
                   ].map((preset) => (
                     <button
                       key={preset.color}

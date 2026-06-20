@@ -108,7 +108,14 @@ function loadHardwareConfig() {
   try {
     if (fs.existsSync(hardwareConfigPath)) {
       const config = JSON.parse(fs.readFileSync(hardwareConfigPath, 'utf8'));
-      if (config.espIP) espIP = config.espIP;
+      if (config.espIP) {
+        if (config.espIP === '192.168.110.65') {
+          log('[Config] 192.168.110.65 is BLOCKED. Resetting to 192.168.4.1');
+          espIP = '192.168.4.1';
+        } else {
+          espIP = config.espIP;
+        }
+      }
       if (config.blockMapping) blockMapping = config.blockMapping;
       if (config.tvIP) tvIP = config.tvIP;
       if (config.tvClientKey) tvClientKey = config.tvClientKey;
@@ -163,6 +170,7 @@ function discoverESP32() {
       for (let i = 1; i <= 254; i++) {
         const ip = `${subnet}.${i}`;
         if (ip === localIP) continue; // Skip self
+        if (ip === '192.168.110.65') continue; // Block/skip the other stand's ESP32
 
         pending++;
         const url = `http://${ip}:${ESP32_PORT}/api/status`;

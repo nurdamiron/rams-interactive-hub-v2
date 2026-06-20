@@ -1,28 +1,11 @@
-/**
- * RAMS Actuator Controller - Arduino Mega #1
- *
- * Управляет блоками 1-7 (15 актуаторов: 6×2 + 1×3 PARK HOUSE MASLAK)
- * Простой текстовый протокол (стиль DroneControl.ino)
- * Использует общий конфигурационный файл ACTUATOR_CONFIG.h
- *
- * Протокол связи с ESP32 (Serial1):
- * RX: BLOCK:5:UP:10000\n      - Блок 5 вверх на 10 сек
- * RX: BLOCK:3:DOWN:5000\n     - Блок 3 вниз на 5 сек
- * RX: BLOCK:7:STOP\n          - Остановить блок 7
- * RX: ALL:STOP\n              - Остановить все блоки
- * RX: PING\n                  - Проверка связи
- *
- * TX: ACK:5:UP\n              - Подтверждение
- * TX: DONE:5\n                - Блок завершил работу
- * TX: PONG\n                  - Ответ на пинг
- * TX: ERROR:message\n         - Ошибка
- *
- * @version 3.1 (DroneControl style)
- * @date 2026-02-15
- * @author RAMS Global Team
- */
-
+#include <Arduino.h>
 #include "ACTUATOR_CONFIG.h"
+
+// Переопределяем логику реле для Mega 1 (здесь инверсная логика: LOW = ON, HIGH = OFF)
+#undef RELAY_ON
+#undef RELAY_OFF
+#define RELAY_ON            LOW
+#define RELAY_OFF           HIGH
 
 // ============================================================================
 // SERIAL CONFIGURATION
@@ -77,6 +60,13 @@ void setup() {
     digitalWrite(cfg->actuator2.upPin, RELAY_OFF);
     digitalWrite(cfg->actuator2.downPin, RELAY_OFF);
 
+    if (cfg->actuatorCount >= 3 && cfg->actuator3.upPin != 0) {
+      pinMode(cfg->actuator3.upPin, OUTPUT);
+      pinMode(cfg->actuator3.downPin, OUTPUT);
+      digitalWrite(cfg->actuator3.upPin, RELAY_OFF);
+      digitalWrite(cfg->actuator3.downPin, RELAY_OFF);
+    }
+
     DEBUG_SERIAL.print("  Block ");
     DEBUG_SERIAL.print(i);
     DEBUG_SERIAL.print(": [");
@@ -87,6 +77,12 @@ void setup() {
     DEBUG_SERIAL.print(cfg->actuator2.upPin);
     DEBUG_SERIAL.print(",");
     DEBUG_SERIAL.print(cfg->actuator2.downPin);
+    if (cfg->actuatorCount >= 3 && cfg->actuator3.upPin != 0) {
+      DEBUG_SERIAL.print("] [");
+      DEBUG_SERIAL.print(cfg->actuator3.upPin);
+      DEBUG_SERIAL.print(",");
+      DEBUG_SERIAL.print(cfg->actuator3.downPin);
+    }
     DEBUG_SERIAL.println("]");
   }
 
@@ -99,6 +95,8 @@ void setup() {
 
   // ESP32 serial
   ESP32_SERIAL.begin(SERIAL_BAUD);
+  // Устанавливаем таймаут 50мс чтобы readStringUntil не блокировал цикл loop
+  ESP32_SERIAL.setTimeout(50);
 
   DEBUG_SERIAL.println("[READY] System initialized!\n");
 }
@@ -108,19 +106,108 @@ void setup() {
 // ============================================================================
 
 void loop() {
-  // ===== ЧТЕНИЕ КОМАНД ОТ ESP32 =====
+  // ===== ЧТЕНИЕ КОМАНД ОТ ESP32 или USB =====
+  bool hasCommand = false;
   if (ESP32_SERIAL.available()) {
     cmdRaw = ESP32_SERIAL.readStringUntil('\n');
     cmdRaw.trim();
-
     if (cmdRaw.length() > 0) {
-      DEBUG_SERIAL.print("[RX] ");
-      DEBUG_SERIAL.println(cmdRaw);
+      hasCommand = true;
+    }
+  }
+  
+  if (!hasCommand && DEBUG_SERIAL.available()) {
+    cmdRaw = DEBUG_SERIAL.readStringUntil('\n');
+    cmdRaw.trim();
+    if (cmdRaw.length() > 0) {
+      hasCommand = true;
+    }
+  }
+
+  if (hasCommand) {
+    DEBUG_SERIAL.print("[RX] ");
+    DEBUG_SERIAL.println(cmdRaw);
 
       // PING
       if (cmdRaw == CMD_PING) {
         ESP32_SERIAL.println(CMD_PONG);
         DEBUG_SERIAL.println("[TX] PONG");
+      }
+      // ON:pin
+      else if (cmdRaw.startsWith("ON:")) {
+        int pin = cmdRaw.substring(3).toInt();
+        if (pin >= 22 && pin <= 53) {
+          pinMode(pin, OUTPUT);
+          digitalWrite(pin, RELAY_ON);
+          DEBUG_SERIAL.print("[PIN ON] ");
+          DEBUG_SERIAL.println(pin);
+          ESP32_SERIAL.print("ACK:PIN:");
+          ESP32_SERIAL.print(pin);
+          ESP32_SERIAL.println(":ON");
+        }
+      }
+      // OFF:pin
+      else if (cmdRaw.startsWith("OFF:")) {
+        int pin = cmdRaw.substring(4).toInt();
+        if (pin >= 22 && pin <= 53) {
+          pinMode(pin, OUTPUT);
+          digitalWrite(pin, RELAY_OFF);
+          DEBUG_SERIAL.print("[PIN OFF] ");
+          DEBUG_SERIAL.println(pin);
+          ESP32_SERIAL.print("ACK:PIN:");
+          ESP32_SERIAL.print(pin);
+          ESP32_SERIAL.println(":OFF");
+        }
+      }
+      // PIN:pin:action:duration
+      else if (cmdRaw.startsWith("PIN:")) {
+        int firstColon = cmdRaw.indexOf(':');
+        int secondColon = cmdRaw.indexOf(':', firstColon + 1);
+        int thirdColon = cmdRaw.indexOf(':', secondColon + 1);
+        if (firstColon != -1 && secondColon != -1) {
+          int pin = cmdRaw.substring(firstColon + 1, secondColon).toInt();
+          String actionStr = (thirdColon != -1) ? cmdRaw.substring(secondColon + 1, thirdColon) : cmdRaw.substring(secondColon + 1);
+          int dur = (thirdColon != -1) ? cmdRaw.substring(thirdColon + 1).toInt() : 0;
+          if (pin >= 22 && pin <= 53) {
+            if (actionStr == "ON") {
+              pinMode(pin, OUTPUT);
+              digitalWrite(pin, RELAY_ON);
+              DEBUG_SERIAL.print("[PIN ON] ");
+              DEBUG_SERIAL.print(pin);
+              if (dur > 0) {
+                DEBUG_SERIAL.print(" for ");
+                DEBUG_SERIAL.print(dur);
+                DEBUG_SERIAL.println("ms");
+                delay(dur);
+                digitalWrite(pin, RELAY_OFF);
+                DEBUG_SERIAL.print("[PIN OFF (TIMEOUT)] ");
+                DEBUG_SERIAL.println(pin);
+              } else {
+                DEBUG_SERIAL.println();
+              }
+              ESP32_SERIAL.print("ACK:PIN:");
+              ESP32_SERIAL.print(pin);
+              ESP32_SERIAL.println(":ON");
+            } else if (actionStr == "OFF") {
+              pinMode(pin, OUTPUT);
+              digitalWrite(pin, RELAY_OFF);
+              DEBUG_SERIAL.print("[PIN OFF] ");
+              DEBUG_SERIAL.println(pin);
+              ESP32_SERIAL.print("ACK:PIN:");
+              ESP32_SERIAL.print(pin);
+              ESP32_SERIAL.println(":OFF");
+            }
+          }
+        }
+      }
+      // STOP (all off)
+      else if (cmdRaw == "STOP") {
+        DEBUG_SERIAL.println("[DIRECT] STOP ALL PINS");
+        for (int pin = 22; pin <= 53; pin++) {
+          pinMode(pin, OUTPUT);
+          digitalWrite(pin, RELAY_OFF);
+        }
+        ESP32_SERIAL.println("ACK:STOP");
       }
       // ALL:STOP
       else if (cmdRaw.startsWith(CMD_ALL_STOP)) {
@@ -134,12 +221,89 @@ void loop() {
           digitalWrite(cfg->actuator1.downPin, RELAY_OFF);
           digitalWrite(cfg->actuator2.upPin, RELAY_OFF);
           digitalWrite(cfg->actuator2.downPin, RELAY_OFF);
+          if (cfg->actuatorCount >= 3 && cfg->actuator3.upPin != 0) {
+            digitalWrite(cfg->actuator3.upPin, RELAY_OFF);
+            digitalWrite(cfg->actuator3.downPin, RELAY_OFF);
+          }
 
           int idx = i - MEGA1_BLOCK_START + 1;
           blockStates[idx].isActive = false;
         }
 
         ESP32_SERIAL.println("ACK:0:STOP");
+      }
+      // ACTUATOR:blockNum:actNum:action:duration
+      else if (cmdRaw.startsWith("ACTUATOR")) {
+        int block = 0;
+        int act = 0;
+        char actAction[10] = {0};
+        int dur = 0;
+
+        int parsed = sscanf(cmdRaw.c_str(), "ACTUATOR:%d:%d:%[^:]:%d", &block, &act, actAction, &dur);
+        if (parsed >= 3 && block >= MEGA1_BLOCK_START && block <= MEGA1_BLOCK_END) {
+          const BlockConfig* cfg = getBlockConfig(block);
+          int idx = block - MEGA1_BLOCK_START + 1;
+          if (dur == 0) dur = DEFAULT_DURATION_MS;
+
+          // Определяем H-Bridge
+          ActuatorPins* pins = nullptr;
+          if (act == 1) pins = (ActuatorPins*)&cfg->actuator1;
+          else if (act == 2) pins = (ActuatorPins*)&cfg->actuator2;
+          else if (act == 3 && cfg->actuatorCount >= 3) pins = (ActuatorPins*)&cfg->actuator3;
+
+          if (pins != nullptr && pins->upPin != 0) {
+            if (strcmp(actAction, ACTION_UP) == 0) {
+              digitalWrite(pins->upPin, RELAY_ON);
+              digitalWrite(pins->downPin, RELAY_OFF);
+              blockStates[idx].isActive = true;
+              blockStates[idx].startTime = millis();
+              blockStates[idx].duration = dur;
+              DEBUG_SERIAL.print("[ACTUATOR ");
+              DEBUG_SERIAL.print(block);
+              DEBUG_SERIAL.print(" ACT ");
+              DEBUG_SERIAL.print(act);
+              DEBUG_SERIAL.print("] UP ");
+              DEBUG_SERIAL.println(dur);
+              ESP32_SERIAL.print("ACK:");
+              ESP32_SERIAL.print(block);
+              ESP32_SERIAL.print(":");
+              ESP32_SERIAL.print(act);
+              ESP32_SERIAL.println(":UP");
+            }
+            else if (strcmp(actAction, ACTION_DOWN) == 0) {
+              digitalWrite(pins->downPin, RELAY_ON);
+              digitalWrite(pins->upPin, RELAY_OFF);
+              blockStates[idx].isActive = true;
+              blockStates[idx].startTime = millis();
+              blockStates[idx].duration = dur;
+              DEBUG_SERIAL.print("[ACTUATOR ");
+              DEBUG_SERIAL.print(block);
+              DEBUG_SERIAL.print(" ACT ");
+              DEBUG_SERIAL.print(act);
+              DEBUG_SERIAL.print("] DOWN ");
+              DEBUG_SERIAL.println(dur);
+              ESP32_SERIAL.print("ACK:");
+              ESP32_SERIAL.print(block);
+              ESP32_SERIAL.print(":");
+              ESP32_SERIAL.print(act);
+              ESP32_SERIAL.println(":DOWN");
+            }
+            else if (strcmp(actAction, ACTION_STOP) == 0) {
+              digitalWrite(pins->upPin, RELAY_OFF);
+              digitalWrite(pins->downPin, RELAY_OFF);
+              DEBUG_SERIAL.print("[ACTUATOR ");
+              DEBUG_SERIAL.print(block);
+              DEBUG_SERIAL.print(" ACT ");
+              DEBUG_SERIAL.print(act);
+              DEBUG_SERIAL.println("] STOP");
+              ESP32_SERIAL.print("ACK:");
+              ESP32_SERIAL.print(block);
+              ESP32_SERIAL.print(":");
+              ESP32_SERIAL.print(act);
+              ESP32_SERIAL.println(":STOP");
+            }
+          }
+        }
       }
       // BLOCK:N:ACTION:DURATION
       else if (cmdRaw.startsWith(CMD_BLOCK)) {
@@ -162,6 +326,10 @@ void loop() {
             digitalWrite(cfg->actuator2.upPin, RELAY_ON);
             digitalWrite(cfg->actuator1.downPin, RELAY_OFF);
             digitalWrite(cfg->actuator2.downPin, RELAY_OFF);
+            if (cfg->actuatorCount >= 3 && cfg->actuator3.upPin != 0) {
+              digitalWrite(cfg->actuator3.upPin, RELAY_ON);
+              digitalWrite(cfg->actuator3.downPin, RELAY_OFF);
+            }
 
             blockStates[idx].isActive = true;
             blockStates[idx].startTime = millis();
@@ -182,6 +350,10 @@ void loop() {
             digitalWrite(cfg->actuator2.downPin, RELAY_ON);
             digitalWrite(cfg->actuator1.upPin, RELAY_OFF);
             digitalWrite(cfg->actuator2.upPin, RELAY_OFF);
+            if (cfg->actuatorCount >= 3 && cfg->actuator3.upPin != 0) {
+              digitalWrite(cfg->actuator3.downPin, RELAY_ON);
+              digitalWrite(cfg->actuator3.upPin, RELAY_OFF);
+            }
 
             blockStates[idx].isActive = true;
             blockStates[idx].startTime = millis();
@@ -202,6 +374,10 @@ void loop() {
             digitalWrite(cfg->actuator1.downPin, RELAY_OFF);
             digitalWrite(cfg->actuator2.upPin, RELAY_OFF);
             digitalWrite(cfg->actuator2.downPin, RELAY_OFF);
+            if (cfg->actuatorCount >= 3 && cfg->actuator3.upPin != 0) {
+              digitalWrite(cfg->actuator3.upPin, RELAY_OFF);
+              digitalWrite(cfg->actuator3.downPin, RELAY_OFF);
+            }
 
             blockStates[idx].isActive = false;
 
@@ -224,7 +400,6 @@ void loop() {
       else {
         ESP32_SERIAL.println("ERROR:Unknown command");
       }
-    }
   }
 
   // ===== ПРОВЕРКА ТАЙМАУТОВ =====
@@ -234,7 +409,7 @@ void loop() {
     if (blockStates[i].isActive) {
       unsigned long elapsed = now - blockStates[i].startTime;
 
-      if (elapsed >= blockStates[i].duration) {
+      if (elapsed >= (unsigned long)blockStates[i].duration) {
         int bNum = MEGA1_BLOCK_START + i - 1;
         const BlockConfig* cfg = getBlockConfig(bNum);
 
@@ -243,6 +418,10 @@ void loop() {
         digitalWrite(cfg->actuator1.downPin, RELAY_OFF);
         digitalWrite(cfg->actuator2.upPin, RELAY_OFF);
         digitalWrite(cfg->actuator2.downPin, RELAY_OFF);
+        if (cfg->actuatorCount >= 3 && cfg->actuator3.upPin != 0) {
+          digitalWrite(cfg->actuator3.upPin, RELAY_OFF);
+          digitalWrite(cfg->actuator3.downPin, RELAY_OFF);
+        }
 
         blockStates[i].isActive = false;
 

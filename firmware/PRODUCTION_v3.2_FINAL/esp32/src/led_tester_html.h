@@ -1,3 +1,7 @@
+#ifndef LED_TESTER_HTML_H
+#define LED_TESTER_HTML_H
+
+const char LED_TESTER_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -660,7 +664,6 @@
   <button class="tab-btn active" onclick="switchTab('led-tab')">💡 Светодиодные ленты</button>
   <button class="tab-btn" onclick="switchTab('actuator-tab')">⚙️ Актуаторные блоки</button>
   <button class="tab-btn" onclick="switchTab('constructor-tab')">🎨 Конструктор Зон</button>
-  <button class="tab-btn" onclick="switchTab('pin-tab')">🔌 Тест Пинов</button>
 </div>
 
 <!-- ==================== TAB 1: LED CONTROL ==================== -->
@@ -872,80 +875,6 @@
         <button class="btn btn-ghost" style="flex:1; font-size:0.8rem;" onclick="saveConstructorMappings()">💾 Сохранить</button>
         <button class="btn btn-ghost" style="flex:1; font-size:0.8rem;" onclick="generateBlockCode()">💻 Код C++</button>
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- ==================== TAB 4: PIN TESTER ==================== -->
-<div id="pin-tab" class="tab-content">
-  <div style="flex:1">
-    <h2 style="margin-bottom:16px">🔌 Тест пинов (Диагностика реле)</h2>
-    <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:14px;margin-bottom:16px;font-size:0.85rem;color:var(--orange)">
-      ⚠️ <strong>Инструкция:</strong> Нажмите <strong>ON</strong> на пине → реле должно щёлкнуть. <strong>OFF</strong> — выключить. Кнопка <strong>⚡</strong> — импульс (ON→задержка→OFF). Пробуй каждый пин и смотри что двигается!
-    </div>
-    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
-      <div style="display:flex;gap:8px;align-items:center">
-        <span style="color:var(--text-muted);font-size:0.85rem">Длительность импульса (мс):</span>
-        <input type="number" id="pin-pulse-dur" value="1500" min="200" max="5000" style="width:90px;background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:white;font-family:'JetBrains Mono'">
-      </div>
-      <button class="btn btn-danger" style="padding:8px 16px" onclick="allPinsOff(1)">⏹ Mega1 ВСЁ ВЫКЛ</button>
-      <button class="btn btn-danger" style="padding:8px 16px" onclick="allPinsOff(2)">⏹ Mega2 ВСЁ ВЫКЛ</button>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      <!-- Mega 1 -->
-      <div style="background:var(--surface);border:1px solid rgba(0,242,254,0.2);border-radius:16px;padding:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-          <h3 style="color:var(--accent);font-size:1rem">⚡ Arduino Mega #1 (Блоки 1–7)</h3>
-          <span style="font-size:0.75rem;color:var(--text-muted);background:rgba(0,242,254,0.08);padding:3px 8px;border-radius:6px">Пины 22–53</span>
-        </div>
-        <div id="mega1-pins-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"></div>
-      </div>
-      <!-- Mega 2 -->
-      <div style="background:var(--surface);border:1px solid rgba(245,158,11,0.2);border-radius:16px;padding:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-          <h3 style="color:var(--orange);font-size:1rem">⚡ Arduino Mega #2 (Блоки 8–13)</h3>
-          <span style="font-size:0.75rem;color:var(--text-muted);background:rgba(245,158,11,0.08);padding:3px 8px;border-radius:6px">Пины 22–53</span>
-        </div>
-        <div id="mega2-pins-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Right panel -->
-  <div class="panel">
-    <h2>Активные пины</h2>
-    <div style="margin-bottom:12px">
-      <div style="font-size:0.75rem;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Mega1 ON:</div>
-      <div id="pin-active-m1" style="font-family:'JetBrains Mono';font-size:0.8rem;color:var(--green);min-height:24px">—</div>
-    </div>
-    <div>
-      <div style="font-size:0.75rem;color:var(--orange);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Mega2 ON:</div>
-      <div id="pin-active-m2" style="font-family:'JetBrains Mono';font-size:0.8rem;color:var(--green);min-height:24px">—</div>
-    </div>
-    <div class="divider"></div>
-    <div class="field">
-      <label>Лог пинов</label>
-      <div class="terminal" id="pin-log"></div>
-    </div>
-    <div class="divider"></div>
-    <div style="font-size:0.78rem;color:var(--text-muted);line-height:1.7;font-family:'JetBrains Mono'">
-      <div style="color:var(--accent);font-weight:700;margin-bottom:4px">Маппинг из ACTUATOR_CONFIG.h:</div>
-      <div style="color:var(--text-muted);margin-bottom:2px">— Mega1 —</div>
-      B1: 46↑47↓ / 49↑48↓<br>
-      B2: 27↑26↓ / 29↑28↓<br>
-      B3: 23↑22↓ / 25↑24↓<br>
-      B4: 35↑34↓ / 37↑36↓<br>
-      B5: 31↑30↓ / 33↑32↓<br>
-      B6: 43↑42↓ / 45↑44↓<br>
-      B7: 39↑38↓ / 41↑40↓<br>
-      <div style="color:var(--orange);font-weight:700;margin:4px 0 2px">— Mega2 —</div>
-      B8: 47↑46↓ / 49↑48↓<br>
-      B9: 43↑42↓ / 45↑44↓<br>
-      B10: 35↑34↓ / 37↑36↓<br>
-      B11: 39↑38↓ / 41↑40↓<br>
-      B12: 23↑22↓ / 26↑27↓ / 25↑24↓<br>
-      B13: 31↑30↓ / 33↑32↓
     </div>
   </div>
 </div>
@@ -1169,19 +1098,12 @@ function switchTab(tabId) {
   const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => 
     (tabId === 'led-tab' && b.textContent.includes('Светодиодные')) || 
     (tabId === 'actuator-tab' && b.textContent.includes('Актуаторные')) ||
-    (tabId === 'constructor-tab' && b.textContent.includes('Конструктор')) ||
-    (tabId === 'pin-tab' && b.textContent.includes('Тест Пинов'))
+    (tabId === 'constructor-tab' && b.textContent.includes('Конструктор'))
   );
   if (btn) btn.classList.add('active');
   
   const content = document.getElementById(tabId);
   if (content) content.classList.add('active');
-
-  // Init grids when switching to pin-tab
-  if (tabId === 'pin-tab') {
-    renderPinGrids();
-    updatePinActiveDisplay();
-  }
 }
 
 // ============================================================
@@ -1283,20 +1205,7 @@ function renderActuators() {
     card.id = `act-card-${i}`;
     
     const megaColor = block.mega === 1 ? 'var(--accent)' : 'var(--orange)';
-    const actsCount = block.acts || 2;
-    const actsLabel = actsCount === 3 ? '3 актуатора' : '2 актуатора';
-    
-    // Individual actuator rows (Act 1, Act 2, [Act 3])
-    let actRows = '';
-    for (let a = 1; a <= actsCount; a++) {
-      actRows += `
-        <div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-top:1px solid rgba(255,255,255,0.06)">
-          <span style="font-size:0.72rem;color:var(--text-muted);font-family:'JetBrains Mono';font-weight:700;min-width:44px">Act ${a}:</span>
-          <button class="btn btn-actuator-up" style="flex:1;padding:7px 0;font-size:0.78rem" onclick="controlIndividualActuator(${i},${a},'UP')">▲ UP</button>
-          <button class="btn btn-actuator-down" style="flex:1;padding:7px 0;font-size:0.78rem" onclick="controlIndividualActuator(${i},${a},'DOWN')">▼ DOWN</button>
-          <button class="btn btn-danger" style="padding:7px 10px;font-size:0.78rem;min-width:40px" onclick="controlIndividualActuator(${i},${a},'STOP')">■</button>
-        </div>`;
-    }
+    const actsLabel = block.acts === 3 ? '3 актуатора' : '2 актуатора';
     
     card.innerHTML = `
       <div class="actuator-header">
@@ -1310,12 +1219,11 @@ function renderActuators() {
         </div>
         <div id="act-state-${i}" style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.15)"></div>
       </div>
-      <div class="actuator-controls" style="margin-bottom:4px">
-        <button class="btn btn-actuator-up" onclick="controlActuator(${i}, 'UP')">▲ ВСЕ ВВЕРХ</button>
-        <button class="btn btn-actuator-down" onclick="controlActuator(${i}, 'DOWN')">▼ ВСЕ ВНИЗ</button>
+      <div class="actuator-controls">
+        <button class="btn btn-actuator-up" onclick="controlActuator(${i}, 'UP')">▲ ВВЕРХ</button>
+        <button class="btn btn-actuator-down" onclick="controlActuator(${i}, 'DOWN')">▼ ВНИЗ</button>
         <button class="btn btn-danger" style="padding: 10px 0" onclick="controlActuator(${i}, 'STOP')">СТОП</button>
       </div>
-      ${actRows}
     `;
     grid.appendChild(card);
   }
@@ -1326,12 +1234,14 @@ async function controlActuator(blockNum, action) {
     actLog('Ошибка: нет связи с ESP32!', 'err');
     return;
   }
+  // Жёсткое ограничение: максимум 4000мс!
   let duration = Math.min(parseInt(document.getElementById('actuator-duration').value) || 4000, 4000);
   document.getElementById('actuator-duration').value = duration;
   
   const block = BLOCK_NAMES[blockNum];
-  actLog(`Блок ${blockNum} (${block.name}) → ${action} ВСЕ актуаторы на ${duration}мс [Mega #${block.mega}]`, 'info');
+  actLog(`Блок ${blockNum} (${block.name}) → ${action} на ${duration}мс [Mega #${block.mega}]`, 'info');
   
+  // Визуальная индикация состояния
   const dot = document.getElementById(`act-state-${blockNum}`);
   if (dot) {
     if (action === 'UP')   { dot.style.background = 'var(--green)'; dot.style.boxShadow = '0 0 8px var(--green)'; }
@@ -1343,6 +1253,7 @@ async function controlActuator(blockNum, action) {
     const res = await esp(`/api/block?num=${blockNum}&action=${action}&duration=${duration}`, "POST");
     const text = await res.text();
     actLog(`✅ Ответ: ${text}`, 'ok');
+    // Авто-сброс индикатора после таймаута
     if (action === 'UP' || action === 'DOWN') {
       setTimeout(() => {
         if (dot) { dot.style.background = 'rgba(255,255,255,0.15)'; dot.style.boxShadow = 'none'; }
@@ -1350,38 +1261,6 @@ async function controlActuator(blockNum, action) {
     }
   } catch(e) {
     actLog(`❌ Ошибка команды: ${e.message}`, 'err');
-    if (dot) { dot.style.background = 'var(--red)'; }
-  }
-}
-
-async function controlIndividualActuator(blockNum, actNum, action) {
-  if (!connected) {
-    actLog('Ошибка: нет связи с ESP32!', 'err');
-    return;
-  }
-  let duration = Math.min(parseInt(document.getElementById('actuator-duration').value) || 4000, 4000);
-  
-  const block = BLOCK_NAMES[blockNum];
-  actLog(`Блок ${blockNum} Act ${actNum} (${block.name}) → ${action} на ${duration}мс [Mega #${block.mega}]`, 'info');
-  
-  const dot = document.getElementById(`act-state-${blockNum}`);
-  if (dot) {
-    if (action === 'UP')   { dot.style.background = 'var(--green)'; dot.style.boxShadow = '0 0 8px var(--green)'; }
-    if (action === 'DOWN') { dot.style.background = 'var(--orange)'; dot.style.boxShadow = '0 0 8px var(--orange)'; }
-    if (action === 'STOP') { dot.style.background = 'rgba(255,255,255,0.15)'; dot.style.boxShadow = 'none'; }
-  }
-
-  try {
-    const res = await esp(`/api/actuator?block=${blockNum}&act=${actNum}&action=${action}&duration=${duration}`, "GET");
-    const text = await res.text();
-    actLog(`✅ Блок ${blockNum} Act ${actNum} ${action}: ${text}`, 'ok');
-    if (action === 'UP' || action === 'DOWN') {
-      setTimeout(() => {
-        if (dot) { dot.style.background = 'rgba(255,255,255,0.15)'; dot.style.boxShadow = 'none'; }
-      }, duration);
-    }
-  } catch(e) {
-    actLog(`❌ Ошибка Блок ${blockNum} Act ${actNum}: ${e.message}`, 'err');
     if (dot) { dot.style.background = 'var(--red)'; }
   }
 }
@@ -2170,133 +2049,11 @@ setInterval(() => {
     }).catch(() => {});
   }
 }, 4000);
-// ============================================================
-// Pin Tester
-// ============================================================
-const pinStates = {1: {}, 2: {}};
-
-function pinLog(msg, cls='') {
-  const el = document.getElementById('pin-log');
-  if (!el) return;
-  el.innerHTML += `<div class="${cls}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
-  el.scrollTop = el.scrollHeight;
-}
-
-function renderPinGrids() {
-  for (const mega of [1, 2]) {
-    const grid = document.getElementById(`mega${mega}-pins-grid`);
-    if (!grid) continue;
-    grid.innerHTML = '';
-    const accentColor = mega === 1 ? 'var(--accent)' : 'var(--orange)';
-    for (let pin = 22; pin <= 53; pin++) {
-      const cell = document.createElement('div');
-      cell.style.cssText = 'display:flex;flex-direction:column;gap:3px;align-items:center;padding:4px;background:rgba(0,0,0,0.2);border-radius:8px;border:1px solid rgba(255,255,255,0.04)';
-      cell.innerHTML = `
-        <span style="font-size:0.68rem;color:${accentColor};font-family:'JetBrains Mono';font-weight:700">${pin}</span>
-        <div style="display:flex;gap:2px">
-          <button id="pin-on-m${mega}-p${pin}"
-            style="padding:3px 5px;font-size:0.65rem;min-width:28px;background:rgba(16,185,129,0.1);color:var(--green);border:1px solid rgba(16,185,129,0.2);border-radius:5px;cursor:pointer;transition:all 0.2s"
-            onclick="setPinOn(${mega},${pin})">ON</button>
-          <button id="pin-off-m${mega}-p${pin}"
-            style="padding:3px 5px;font-size:0.65rem;min-width:28px;background:rgba(255,255,255,0.04);color:var(--text-muted);border:1px solid rgba(255,255,255,0.08);border-radius:5px;cursor:pointer;transition:all 0.2s"
-            onclick="setPinOff(${mega},${pin})">OFF</button>
-        </div>
-        <button id="pin-pulse-m${mega}-p${pin}"
-          style="padding:2px 0;font-size:0.65rem;width:100%;background:rgba(0,242,254,0.06);color:var(--accent);border:1px solid rgba(0,242,254,0.15);border-radius:5px;cursor:pointer;transition:all 0.2s"
-          onclick="pulsePinOn(${mega},${pin})">⚡ PULSE</button>
-      `;
-      grid.appendChild(cell);
-    }
-  }
-}
-
-function updatePinButton(mega, pin, isOn) {
-  const onBtn = document.getElementById(`pin-on-m${mega}-p${pin}`);
-  const offBtn = document.getElementById(`pin-off-m${mega}-p${pin}`);
-  if (!onBtn || !offBtn) return;
-  if (isOn) {
-    onBtn.style.background = 'var(--green)';
-    onBtn.style.color = 'black';
-    onBtn.style.fontWeight = '700';
-    offBtn.style.background = 'rgba(255,255,255,0.04)';
-    offBtn.style.color = 'var(--text-muted)';
-    offBtn.style.fontWeight = '';
-    onBtn.parentElement.parentElement.style.background = 'rgba(16,185,129,0.08)';
-    onBtn.parentElement.parentElement.style.border = '1px solid rgba(16,185,129,0.3)';
-  } else {
-    onBtn.style.background = 'rgba(16,185,129,0.1)';
-    onBtn.style.color = 'var(--green)';
-    onBtn.style.fontWeight = '';
-    offBtn.style.background = 'rgba(255,255,255,0.04)';
-    offBtn.style.color = 'var(--text-muted)';
-    onBtn.parentElement.parentElement.style.background = 'rgba(0,0,0,0.2)';
-    onBtn.parentElement.parentElement.style.border = '1px solid rgba(255,255,255,0.04)';
-  }
-}
-
-function updatePinActiveDisplay() {
-  for (const mega of [1, 2]) {
-    const active = Object.entries(pinStates[mega]).filter(([,v])=>v).map(([k])=>k);
-    const el = document.getElementById(`pin-active-m${mega}`);
-    if (el) el.textContent = active.length ? active.join(', ') : '—';
-  }
-}
-
-async function setPinOn(mega, pin) {
-  if (!connected) { pinLog('Нет связи с ESP32!', 'err'); return; }
-  try {
-    await esp(`/api/pin?mega=${mega}&pin=${pin}&action=ON`);
-    pinStates[mega][pin] = true;
-    updatePinButton(mega, pin, true);
-    pinLog(`Mega${mega} пин ${pin} → ON`, 'ok');
-    updatePinActiveDisplay();
-  } catch(e) { pinLog(`Ошибка ON пин${pin}: ${e.message}`, 'err'); }
-}
-
-async function setPinOff(mega, pin) {
-  if (!connected) { pinLog('Нет связи с ESP32!', 'err'); return; }
-  try {
-    await esp(`/api/pin?mega=${mega}&pin=${pin}&action=OFF`);
-    pinStates[mega][pin] = false;
-    updatePinButton(mega, pin, false);
-    pinLog(`Mega${mega} пин ${pin} → OFF`, 'warn');
-    updatePinActiveDisplay();
-  } catch(e) { pinLog(`Ошибка OFF пин${pin}: ${e.message}`, 'err'); }
-}
-
-async function pulsePinOn(mega, pin) {
-  if (!connected) { pinLog('Нет связи с ESP32!', 'err'); return; }
-  const dur = parseInt(document.getElementById('pin-pulse-dur').value) || 1500;
-  try {
-    await esp(`/api/pin?mega=${mega}&pin=${pin}&action=PULSE&dur=${dur}`);
-    pinStates[mega][pin] = true;
-    updatePinButton(mega, pin, true);
-    pinLog(`Mega${mega} пин ${pin} → PULSE ${dur}мс`, 'info');
-    updatePinActiveDisplay();
-    setTimeout(() => {
-      pinStates[mega][pin] = false;
-      updatePinButton(mega, pin, false);
-      updatePinActiveDisplay();
-    }, dur + 200);
-  } catch(e) { pinLog(`Ошибка PULSE пин${pin}: ${e.message}`, 'err'); }
-}
-
-async function allPinsOff(mega) {
-  if (!connected) { pinLog('Нет связи!', 'err'); return; }
-  try {
-    await esp('/api/stop', 'POST');
-    pinStates[mega] = {};
-    for (let pin = 22; pin <= 53; pin++) {
-      updatePinButton(mega, pin, false);
-    }
-    pinLog(`Mega${mega} — все пины ВЫКЛ (STOP ALL)`, 'warn');
-    updatePinActiveDisplay();
-  } catch(e) { pinLog(`Ошибка остановки: ${e.message}`, 'err'); }
-}
-
-renderPinGrids();
-updatePinActiveDisplay();
 
 </script>
 </body>
 </html>
+
+)rawliteral";
+
+#endif // LED_TESTER_HTML_H

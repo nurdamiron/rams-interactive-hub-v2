@@ -7,14 +7,14 @@
  *
  * LED конфигурация (9 лент, подтверждено физическим тестом):
  *  idx  GPIO  Лента
- *   0    23   Большой круг (600 LED, WS2815)
- *   1    15   Луч 1 (110 LED, WS2815)
+ *   0    21   Большой круг (600 LED, WS2815)
+ *   1     4   Луч 1 (110 LED, WS2815)
  *   2    14   Луч 2 (110 LED, WS2815)
  *   3    27   Луч 3 (110 LED, WS2815)
  *   4    32   Луч 4 (110 LED, WS2815)
  *   5     2   Луч 5 (110 LED, WS2815)
- *   6    21   Короткий луч (48 LED, WS2815)
- *   7    22   Внутренний круг (146 LED, WS2815)
+ *   6    23   Короткий луч (50 LED, WS2815, последовательно на GPIO 23)
+ *   7    23   Внутренний круг (146 LED, WS2815)
  *   8    18   Луч 6 (110 LED, WS2815)
  *
  * Логика: Блок 1 UP → Актуаторы 1 UP + LED зона 1 ON
@@ -27,12 +27,16 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <ESPmDNS.h>
+#include <ArduinoOTA.h>
+#include <Update.h>
+#include "led_tester_html.h"
 // ВАЖНО: FASTLED_ALLOW_INTERRUPTS 0 был УБРАН!
 // На ESP32 RMT-драйвер использует аппаратные прерывания для дозаполнения
 // буфера при передаче данных на большое кол-во LED (600 шт).
 // С FASTLED_ALLOW_INTERRUPTS 0 прерывания блокируются → мусор в ленте!
 #define FASTLED_RMT_MAX_CHANNELS 8   // Явно задаем макс. кол-во RMT каналов
 #include <FastLED.h>
+#include <NeoPixelBus.h>
 #include "ACTUATOR_CONFIG.h"
 
 
@@ -53,17 +57,36 @@
 #define NUM_STRIPS  9
 #define MAX_LEDS    600
 
+// Индексы лучей и кругов
+#define S_INNER  7   // GPIO 23, внутренний круг
+#define S_OUTER  0   // GPIO 22, большой круг (внешний)
+
+// Настройки поведения Большого круга (для тестов разделения)
+const bool ENABLE_BIG_CIRCLE_ON_BLOCKS = true;  // true = большой круг зажигается вместе с блоками
+const bool ENABLE_BIG_CIRCLE_ON_EFFECTS = true; // true = большая лента участвует в общих эффектах
+
 // GPIO пины для LED лент (подтверждено физическим тестом)
 //  idx:    0    1    2    3    4    5    6    7    8
-// pin:    23   15   14   27   32    2   21   22   18
-// desc:   Big  Long Long Long Long Long Shrt Innr Long
-// NOTE:   Big circle gets RMT ch0 (hardware). GPIO18 is 9th (bit-bang fallback).
-static const uint8_t  PIN_GPIO[NUM_STRIPS] = {  5,  15,  14,  27,  32,   2,   4,  22,  18 };
-static const uint16_t PIN_LEDS[NUM_STRIPS] = {600, 110, 110, 110, 110, 110,  48, 146, 110 };
+// pin:    19    4   15   23   32    2   18   27   18
+// desc:   Big  Ray1 Ray2 Ray3 Ray4  Ray5 Shrt Innr Ray6
+// NOTE:   idx6=nullptr (Short chained after Ray 6 on GPIO18). GPIO19=Big Circle WS2815.
+static const uint8_t  PIN_GPIO[NUM_STRIPS] = { 19,   4,  15,  23,  32,   2,  18,  27,  18 };
+static const uint16_t PIN_LEDS[NUM_STRIPS] = {530, 110, 110, 110, 110, 110,  49, 146, 110 };
 
 
 static CRGB leds[NUM_STRIPS][MAX_LEDS];
 static uint8_t heat[NUM_STRIPS][MAX_LEDS];  // Для эффекта Fire
+static CRGB ray6AndShortCombined[159];       // Объединенный буфер для Луча 6 (110) + Короткой линии (49)
+
+// Инициализируем NeoPixelBus с использованием аппаратных RMT каналов 0-7
+NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt0Ws2812xMethod> strip0(530, 19);
+NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt1Ws2812xMethod> strip1(110, 4);
+NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt2Ws2812xMethod> strip2(110, 15);
+NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt3Ws2812xMethod> strip3(110, 23);
+NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt4Ws2812xMethod> strip4(110, 32);
+NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt5Ws2812xMethod> strip5(110, 2);
+NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt6Ws2812xMethod> strip7(146, 27);
+NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt7Ws2812xMethod> strip8(159, 18);
 
 // Глобальные LED параметры
 uint8_t gR = 0, gG = 150, gB = 255;  // Cyan
@@ -74,13 +97,97 @@ uint8_t gSpd = 128; // Скорость эффекта (0-255)
 #define FPS 50  // Частота обновления эффектов
 
 void showLEDs() {
-  // Выводим данные на каждую ленту последовательно, чтобы избежать взаимных помех RMT и bit-bang
-  for (int s = 0; s < NUM_STRIPS; s++) {
-    FastLED[s].showLeds(gBri);
-    // 30 микросекунд на светодиод + 300 микросекунд latch
-    uint32_t waitUs = (PIN_LEDS[s] * 30) + 300;
-    delayMicroseconds(waitUs);
+  // Копируем данные Луча 6 (110 LED) и Короткой линии (49 LED) в общий буфер
+  memcpy(ray6AndShortCombined, leds[8], 110 * sizeof(CRGB));
+  memcpy(ray6AndShortCombined + 110, leds[6], 49 * sizeof(CRGB));
+
+  // 1. Копируем и масштабируем цвета в буферы NeoPixelBus
+  
+  // Strip 0: Big Circle (530 LED, GPIO 19, RMT 0)
+  if (ENABLE_BIG_CIRCLE_ON_BLOCKS || ENABLE_BIG_CIRCLE_ON_EFFECTS) {
+    for (uint16_t i = 0; i < 530; i++) {
+      strip0.SetPixelColor(i, RgbColor(
+        (uint16_t)leds[0][i].r * gBri / 255,
+        (uint16_t)leds[0][i].g * gBri / 255,
+        (uint16_t)leds[0][i].b * gBri / 255
+      ));
+    }
   }
+
+  // Strip 1: Ray 1 (110 LED, GPIO 4, RMT 1)
+  for (uint16_t i = 0; i < 110; i++) {
+    strip1.SetPixelColor(i, RgbColor(
+      (uint16_t)leds[1][i].r * gBri / 255,
+      (uint16_t)leds[1][i].g * gBri / 255,
+      (uint16_t)leds[1][i].b * gBri / 255
+    ));
+  }
+
+  // Strip 2: Ray 2 (110 LED, GPIO 15, RMT 2)
+  for (uint16_t i = 0; i < 110; i++) {
+    strip2.SetPixelColor(i, RgbColor(
+      (uint16_t)leds[2][i].r * gBri / 255,
+      (uint16_t)leds[2][i].g * gBri / 255,
+      (uint16_t)leds[2][i].b * gBri / 255
+    ));
+  }
+
+  // Strip 3: Ray 3 (110 LED, GPIO 23, RMT 3)
+  for (uint16_t i = 0; i < 110; i++) {
+    strip3.SetPixelColor(i, RgbColor(
+      (uint16_t)leds[3][i].r * gBri / 255,
+      (uint16_t)leds[3][i].g * gBri / 255,
+      (uint16_t)leds[3][i].b * gBri / 255
+    ));
+  }
+
+  // Strip 4: Ray 4 (110 LED, GPIO 32, RMT 4)
+  for (uint16_t i = 0; i < 110; i++) {
+    strip4.SetPixelColor(i, RgbColor(
+      (uint16_t)leds[4][i].r * gBri / 255,
+      (uint16_t)leds[4][i].g * gBri / 255,
+      (uint16_t)leds[4][i].b * gBri / 255
+    ));
+  }
+
+  // Strip 5: Ray 5 (110 LED, GPIO 2, RMT 5)
+  for (uint16_t i = 0; i < 110; i++) {
+    strip5.SetPixelColor(i, RgbColor(
+      (uint16_t)leds[5][i].r * gBri / 255,
+      (uint16_t)leds[5][i].g * gBri / 255,
+      (uint16_t)leds[5][i].b * gBri / 255
+    ));
+  }
+
+  // Strip 7: Inner Circle (146 LED, GPIO 27, RMT 6)
+  for (uint16_t i = 0; i < 146; i++) {
+    strip7.SetPixelColor(i, RgbColor(
+      (uint16_t)leds[7][i].r * gBri / 255,
+      (uint16_t)leds[7][i].g * gBri / 255,
+      (uint16_t)leds[7][i].b * gBri / 255
+    ));
+  }
+
+  // Strip 8: Combined Ray 6 + Short (159 LED, GPIO 18, RMT 7)
+  for (uint16_t i = 0; i < 159; i++) {
+    strip8.SetPixelColor(i, RgbColor(
+      (uint16_t)ray6AndShortCombined[i].r * gBri / 255,
+      (uint16_t)ray6AndShortCombined[i].g * gBri / 255,
+      (uint16_t)ray6AndShortCombined[i].b * gBri / 255
+    ));
+  }
+
+  // 2. Отправляем данные на ленты (Show)
+  if (ENABLE_BIG_CIRCLE_ON_BLOCKS || ENABLE_BIG_CIRCLE_ON_EFFECTS) {
+    strip0.Show();
+  }
+  strip1.Show();
+  strip2.Show();
+  strip3.Show();
+  strip4.Show();
+  strip5.Show();
+  strip7.Show();
+  strip8.Show();
 }
 
 // Разделение луча на внутреннюю/внешнюю части
@@ -89,9 +196,7 @@ void showLEDs() {
 #define RAY_OUT_START 18
 #define RAY_OUT_COUNT 15   // 18-32 (15 LED)
 
-// Индексы лучей и кругов
-#define S_INNER  7   // GPIO 23, внутренний круг
-#define S_OUTER  0   // GPIO 22, большой круг (внешний)
+
 
 // Маппинг лучей (idx в массиве leds[] → Ray 1-8)
 // Используем только существующие 6 лучей (индексы: 1, 2, 3, 4, 5, 8)
@@ -142,10 +247,14 @@ int activeBlocksCount = 0;
 // LED включается при UP и остается ВКЛ пока не придет STOP или DOWN
 bool ledStates[TOTAL_BLOCKS + 1];  // true = LED ВКЛ, false = LED ВЫКЛ
 bool testMode = false;             // Тест-режим: loop не перезаписывает LED
+unsigned long lastRequestTime = 0; // Время последнего веб-запроса для предотвращения конфликта прерываний
 
-// Fade состояния для плавного угасания LED при опускании
+// Fade состояния для плавного нарастания (UP) и угасания (DOWN) LED
+#define LED_FADE_DURATION_MS 4000  // 4 секунды — длительность fade-in и fade-out
+
 struct FadeState {
   bool isActive;
+  bool fadeIn;           // true = нарастание (UP), false = угасание (DOWN)
   unsigned long startTime;
   int duration;
 };
@@ -156,6 +265,35 @@ FadeState fadeStates[TOTAL_BLOCKS + 1];  // 0 не используется
 bool mega1Alive = false;
 bool mega2Alive = false;
 unsigned long lastHeartbeat = 0;
+
+// ===== АВТОМАТИЧЕСКИЙ РЕЖИМ (STARTUP AUTOPLAY) =====
+bool autoMode = true; // Запускается автоматически при старте
+unsigned long lastAutoChange = 0;
+const unsigned long AUTO_CHANGE_INTERVAL = 15000; // Смена каждые 15 секунд
+
+const int AUTO_COLORS_COUNT = 5;
+const CRGB AUTO_COLORS[AUTO_COLORS_COUNT] = {
+  CRGB(180, 0, 255),    // Фиолетовый
+  CRGB(255, 255, 255),  // Ақ (Белый)
+  CRGB(0, 150, 255),    // Көк (Голубой)
+  CRGB(128, 255, 128),  // Жасыл мятный (Бело-зеленый)
+  CRGB(255, 180, 40)    // Теплый белый (желтоватый без розового оттенка)
+};
+int autoColorIndex = 0;
+
+const int AUTO_EFFECTS_COUNT = 9;
+const uint8_t AUTO_EFFECTS[AUTO_EFFECTS_COUNT] = {
+  1,  // Pulse
+  3,  // Chase
+  4,  // Sparkle
+  5,  // Wave
+  7,  // Meteor
+  9,  // ColorWipe
+  10, // Twinkle
+  11, // Ripple
+  12  // Breathing
+};
+int autoEffectIndex = 0;
 
 // ============================================================================
 // WEB SERVER
@@ -188,21 +326,29 @@ void setup() {
   // Serial.println("[POWER] GPIO4  = Power Button (INPUT)");
 
   // LED инициализация (из svetdiod-project)
-  // Большой круг стоит ПЕРВЫМ — получает RMT канал 0 (аппаратный)
-  FastLED.addLeds<WS2815,  5, GRB>(leds[0], PIN_LEDS[0]);  // Big circle   (idx 0, GPIO 5) ← RMT ch0 WS2815
-  FastLED.addLeds<WS2812B, 15, GRB>(leds[1], PIN_LEDS[1]);  // Long line    (idx 1, GPIO 15)
-  FastLED.addLeds<WS2812B, 14, GRB>(leds[2], PIN_LEDS[2]);  // Long line    (idx 2, GPIO 14)
-  FastLED.addLeds<WS2812B, 27, GRB>(leds[3], PIN_LEDS[3]);  // Long line    (idx 3, GPIO 27)
-  FastLED.addLeds<WS2812B, 32, GRB>(leds[4], PIN_LEDS[4]);  // Long line    (idx 4, GPIO 32)
-  FastLED.addLeds<WS2812B,  2, GRB>(leds[5], PIN_LEDS[5]);  // Long line    (idx 5, GPIO 2)
-  FastLED.addLeds<WS2812B,  4, GRB>(leds[6], PIN_LEDS[6]);  // Short line   (idx 6, GPIO 4)
-  FastLED.addLeds<WS2815, 22, GRB>(leds[7], PIN_LEDS[7]);  // Inner circle (idx 7, GPIO 22) ← WS2815
-  FastLED.addLeds<WS2812B, 18, GRB>(leds[8], PIN_LEDS[8]);  // Long line    (idx 8, GPIO 18) ← bit-bang
+  // Инициализируем NeoPixelBus ленты
+  strip0.Begin();
+  strip1.Begin();
+  strip2.Begin();
+  strip3.Begin();
+  strip4.Begin();
+  strip5.Begin();
+  strip7.Begin();
+  strip8.Begin();
 
-  FastLED.setBrightness(gBri);
-  FastLED.clear(true);
-  Serial.println("[LED] 9 strips initialized");
-  Serial.println("[LED] Rays: 6x110 LED | Short: 48 LED | Inner: 146 LED | Big: 600 LED");
+  // Очистка при старте
+  strip0.Show();
+  strip1.Show();
+  strip2.Show();
+  strip3.Show();
+  strip4.Show();
+  strip5.Show();
+  strip7.Show();
+  strip8.Show();
+
+  memset(leds, 0, sizeof(leds));
+  Serial.println("[LED] 8 NeoPixelBus hardware controllers initialized (9th combined sequentially)");
+  Serial.println("[LED] Rays: 6x110 LED | Short: 48 LED (on GPIO18 after Ray 6) | Inner: 146 LED | Big: 600 LED");
 
 
   // Инициализация состояний блоков
@@ -212,6 +358,7 @@ void setup() {
     blockStates[i].duration = 0;
     ledStates[i] = false;  // LED выключены
     fadeStates[i].isActive = false;  // Fade выключен
+    fadeStates[i].fadeIn   = false;
     fadeStates[i].startTime = 0;
     fadeStates[i].duration = 0;
   }
@@ -219,7 +366,10 @@ void setup() {
   // Mega Serial
   Mega1Serial.begin(SERIAL_BAUD, SERIAL_8N1, MEGA1_RX, MEGA1_TX);
   Mega2Serial.begin(SERIAL_BAUD, SERIAL_8N1, MEGA2_RX, MEGA2_TX);
-  Serial.println("[MEGA] Serial ready on GPIO25/26 and GPIO16/17");
+  // Устанавливаем таймаут 50мс чтобы readStringUntil не блокировал loop надолго
+  Mega1Serial.setTimeout(50);
+  Mega2Serial.setTimeout(50);
+  Serial.println("[MEGA] Serial ready on GPIO25/26 and GPIO16/17 (timeout=50ms)");
 
   // WiFi - сначала сканируем доступные сети
   Serial.println("[WIFI] Scanning networks...");
@@ -321,59 +471,97 @@ void setup() {
     server.send(204);
   });
 
-  // Web Server
+  server.on("/api/testled", HTTP_OPTIONS, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    server.send(204);
+  });
+
+  // Web Server - Отдаем красивый инженерный пульт со всеми кнопками и LED-тестером
   server.on("/", HTTP_GET, []() {
-    String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
-    html += "<title>RAMS v3.2</title>";
-    html += "<style>*{margin:0;padding:0;box-sizing:border-box}";
-    html += "body{font-family:Arial;background:#111;color:#fff;padding:20px}";
-    html += "h1{color:#0ff;text-align:center;margin-bottom:20px}";
-    html += ".info{text-align:center;margin-bottom:20px;color:#888}";
-    html += ".grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:20px}";
-    html += ".block{background:#222;padding:15px;border-radius:8px;border:2px solid #333}";
-    html += ".block.active{border-color:#0f0;background:#1a2a1a}";
-    html += ".block h3{color:#0ff;margin-bottom:10px;font-size:16px}";
-    html += ".btn{padding:8px 16px;margin:4px;border:none;border-radius:5px;cursor:pointer;font-weight:bold;font-size:14px}";
-    html += ".btn:active{transform:scale(0.95)}";
-    html += ".up{background:#0f0;color:#000}.down{background:#f60;color:#fff}.stop{background:#f00;color:#fff}";
-    html += ".all-stop{background:#f00;color:#fff;padding:12px 24px;font-size:18px;margin:20px auto;display:block}";
-    html += "</style></head><body>";
-    html += "<h1>RAMS v3.2 PRODUCTION</h1>";
-    html += "<div class='info'>Actuators + LED Zones | Active: <span id='active'>0</span>/2</div>";
-    html += "<button class='all-stop' onclick='stopAll()'>STOP ALL</button>";
-    html += "<div class='grid'>";
+    server.sendHeader("Content-Encoding", "identity");
+    server.send_P(200, "text/html", LED_TESTER_HTML);
+  });
 
-    for (int i = 1; i <= TOTAL_BLOCKS; i++) {
-      html += "<div class='block' id='b" + String(i) + "'>";
-      html += "<h3>Block " + String(i) + "</h3>";
-      html += "<button class='btn up' onclick='cmd(" + String(i) + ",\"UP\")'>UP</button>";
-      html += "<button class='btn down' onclick='cmd(" + String(i) + ",\"DOWN\")'>DOWN</button>";
-      html += "<button class='btn stop' onclick='cmd(" + String(i) + ",\"STOP\")'>STOP</button>";
-      html += "</div>";
+  server.on("/led-tester.html", HTTP_GET, []() {
+    server.sendHeader("Content-Encoding", "identity");
+    server.send_P(200, "text/html", LED_TESTER_HTML);
+  });
+
+  // Browser-based OTA Web Update (Beautiful Dark interface)
+  server.on("/update", HTTP_GET, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", 
+      "<div style='background:#07070c;color:#f8fafc;font-family:sans-serif;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;margin:0;padding:20px;box-sizing:border-box;'>"
+      "<div style='background:rgba(19,19,30,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:30px;box-shadow:0 8px 32px rgba(0,0,0,0.37);text-align:center;max-width:400px;width:100%;'>"
+      "<h2 style='background:linear-gradient(135deg,#00f2fe,#4facfe);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:20px;'>⚡ RAMS OTA UPDATE</h2>"
+      "<form method='POST' action='/update' enctype='multipart/form-data' style='display:flex;flex-direction:column;gap:16px;'>"
+      "<input type='file' name='update' style='background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;color:#f8fafc;outline:none;font-size:0.9rem;cursor:pointer;width:100%;'>"
+      "<input type='submit' value='Upload Firmware' style='background:linear-gradient(135deg,#00f2fe,#4facfe);border:none;border-radius:8px;padding:12px 20px;color:#040814;font-weight:bold;cursor:pointer;font-size:0.95rem;box-shadow:0 4px 15px rgba(0,242,254,0.3);transition:transform 0.2s;width:100%;'>"
+      "</form>"
+      "</div>"
+      "</div>"
+    );
+  });
+
+  server.on("/update", HTTP_POST, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", 
+      "<div style='background:#07070c;color:#f8fafc;font-family:sans-serif;min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;margin:0;padding:20px;box-sizing:border-box;'>"
+      "<div style='background:rgba(19,19,30,0.7);border:1px solid " + String(Update.hasError() ? "rgba(239,68,68,0.3)" : "rgba(16,185,129,0.3)") + ";border-radius:16px;padding:30px;box-shadow:0 8px 32px rgba(0,0,0,0.37);text-align:center;max-width:400px;width:100%;'>"
+      + String(Update.hasError() ? 
+        "<h2 style='color:#ef4444;margin-bottom:14px;'>❌ UPDATE FAILED</h2><p style='color:#94a3b8;font-size:0.9rem;'>" + String(Update.errorString()) + "</p>" : 
+        "<h2 style='color:#10b981;margin-bottom:14px;'>✅ UPDATE SUCCESSFUL</h2><p style='color:#94a3b8;font-size:0.9rem;'>ESP32 is rebooting. Please wait 5 seconds and reload the main page.</p>") +
+      "</div>"
+      "</div>"
+    );
+    delay(1000);
+    ESP.restart();
+  }, []() {
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      Serial.printf("Update: %s\n", upload.filename.c_str());
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { // Start with max available size
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (Update.end(true)) { // true to set the size to the current progress
+        Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+      } else {
+        Update.printError(Serial);
+      }
     }
+  });
 
-    html += "</div><script>";
-    html += "function cmd(b,a){fetch('/api/block?num='+b+'&action='+a+'&duration=10000',{method:'POST'}).then(()=>updateStatus())}";
-    html += "function stopAll(){fetch('/api/stop',{method:'POST'}).then(()=>updateStatus())}";
-    html += "function updateStatus(){fetch('/api/status').then(r=>r.json()).then(d=>{";
-    html += "document.getElementById('active').textContent=d.active;";
-    html += "for(let i=1;i<=15;i++){";
-    html += "const b=document.getElementById('b'+i);";
-    html += "if(b)b.classList.toggle('active',d.blocks.includes(i))";
-    html += "}});}";
-    html += "setInterval(updateStatus,1000);updateStatus();";
-    html += "</script></body></html>";
-
-    server.send(200, "text/html", html);
+  server.on("/api/reboot", HTTP_ANY, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    if (server.method() == HTTP_OPTIONS) {
+      server.send(204);
+      return;
+    }
+    server.send(200, "text/plain", "Rebooting ESP32...");
+    delay(500);
+    ESP.restart();
   });
 
   server.on("/api/status", HTTP_GET, []() {
+    lastRequestTime = millis();
     // CORS заголовки
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
 
-    String json = "{\"active\":" + String(activeBlocksCount) + ",\"blocks\":[";
+    String json = "{\"active\":" + String(activeBlocksCount) + 
+                  ",\"mega1Alive\":" + String(mega1Alive ? "true" : "false") +
+                  ",\"mega2Alive\":" + String(mega2Alive ? "true" : "false") +
+                  ",\"blocks\":[";
     bool first = true;
     for (int i = 1; i <= TOTAL_BLOCKS; i++) {
       if (blockStates[i].isActive) {
@@ -387,6 +575,7 @@ void setup() {
   });
 
   server.on("/api/block", HTTP_POST, []() {
+    lastRequestTime = millis();
     // CORS заголовки
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -452,7 +641,56 @@ void setup() {
     server.send(200, "text/plain", "OK");
   });
 
+  // Вспомогательный API для ручного тестирования каждого отдельного актуатора
+  // Пример: /api/actuator?block=3&act=1&action=UP&duration=4000
+  // Пример: /api/actuator?block=3&act=2&action=DOWN&duration=4000
+  // Пример: /api/actuator?block=3&act=1&action=STOP
+  server.on("/api/actuator", HTTP_ANY, []() {
+    lastRequestTime = millis();
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    if (server.method() == HTTP_OPTIONS) {
+      server.send(204);
+      return;
+    }
+
+    int blockNum = server.arg("block").toInt();
+    int actNum = server.arg("act").toInt(); // 1, 2 или 3
+    String action = server.arg("action");
+    int duration = server.arg("duration").toInt();
+
+    if (blockNum < 1 || blockNum > TOTAL_BLOCKS) {
+      server.send(400, "text/plain", "ERROR:Invalid block");
+      return;
+    }
+    if (actNum < 1 || actNum > 3) {
+      server.send(400, "text/plain", "ERROR:Invalid actuator index (1-3)");
+      return;
+    }
+    if (duration <= 0) duration = DEFAULT_DURATION_MS;
+
+    // Формат команды: ACTUATOR:3:2:UP:4000
+    String cmd = "ACTUATOR:" + String(blockNum) + ":" + String(actNum) + ":" + action + ":" + String(duration);
+
+    // Роутинг через общий конфиг
+    const BlockConfig* cfg = getBlockConfig(blockNum);
+    if (cfg->megaNum == 1) {
+      Mega1Serial.println(cmd);
+      Serial.println("[MEGA1 TX MANUAL ACT] " + cmd);
+    } else {
+      Mega2Serial.println(cmd);
+      Serial.println("[MEGA2 TX MANUAL ACT] " + cmd);
+    }
+
+    Serial.printf("[MANUAL ACTUATOR] Block %d Act %d %s %dms\n", blockNum, actNum, action.c_str(), duration);
+    server.send(200, "text/plain", "OK");
+  });
+
+
   server.on("/api/stop", HTTP_POST, []() {
+    lastRequestTime = millis();
     // CORS заголовки
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -470,12 +708,14 @@ void setup() {
     }
     activeBlocksCount = 0;
 
-    FastLED.clear(true);
+    memset(leds, 0, sizeof(leds));
+    showLEDs();
 
     server.send(200, "text/plain", "OK");
   });
 
   server.on("/api/color", HTTP_ANY, []() {
+    lastRequestTime = millis();
     // CORS заголовки
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -499,13 +739,60 @@ void setup() {
     gG = g;
     gB = b;
     testMode = false;  // Выходим из тест-режима
+    autoMode = false;  // Отключаем авторежим при ручном выборе цвета
 
     Serial.printf("[API] LED color set to RGB(%d, %d, %d)\n", r, g, b);
 
     server.send(200, "text/plain", "OK");
   });
 
+  // Эндпоинт для индивидуальной проверки диодов
+  // Пример: /api/testled?strip=7&led=144&r=255&g=0&b=0
+  server.on("/api/testled", HTTP_ANY, []() {
+    lastRequestTime = millis();
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    if (!server.hasArg("strip")) {
+      server.send(400, "text/plain", "ERROR: strip is required");
+      return;
+    }
+
+    int stripIdx = server.arg("strip").toInt();
+    int r = server.hasArg("r") ? server.arg("r").toInt() : 255;
+    int g = server.hasArg("g") ? server.arg("g").toInt() : 255;
+    int b = server.hasArg("b") ? server.arg("b").toInt() : 255;
+
+    if (stripIdx < 0 || stripIdx >= NUM_STRIPS) {
+      server.send(400, "text/plain", "ERROR: Invalid strip index");
+      return;
+    }
+
+    testMode = true; // Блокируем авто-анимации
+
+    if (server.hasArg("led")) {
+      int ledIdx = server.arg("led").toInt();
+      if (ledIdx < 0 || ledIdx >= MAX_LEDS) {
+        server.send(400, "text/plain", "ERROR: Invalid led index");
+        return;
+      }
+      leds[stripIdx][ledIdx] = CRGB(r, g, b);
+      Serial.printf("[API TESTLED] Strip %d LED %d set to RGB(%d,%d,%d)\n", stripIdx, ledIdx, r, g, b);
+    } else {
+      // Если индекс светодиода не передан, заливаем всю ленту целиком
+      for (int i = 0; i < PIN_LEDS[stripIdx]; i++) {
+        leds[stripIdx][i] = CRGB(r, g, b);
+      }
+      Serial.printf("[API TESTLED] Filled entire strip %d with RGB(%d,%d,%d)\n", stripIdx, r, g, b);
+    }
+
+    showLEDs();
+    server.send(200, "text/plain", "OK");
+  });
+
   server.on("/api/effect", HTTP_ANY, []() {
+    lastRequestTime = millis();
     // CORS заголовки
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -524,8 +811,8 @@ void setup() {
     }
 
     // Обновить эффект
-    gFx = id;
     testMode = false;  // Выходим из тест-режима
+    autoMode = false;  // Отключаем авторежим при ручном выборе эффекта
 
     // Очистить heat buffer при переключении на Fire
     if (id == 6) {
@@ -546,6 +833,7 @@ void setup() {
   });
 
   server.on("/api/bri", HTTP_ANY, []() {
+    lastRequestTime = millis();
     // CORS заголовки
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -556,7 +844,6 @@ void setup() {
     if (v > 255) v = 255;
 
     gBri = v;
-    FastLED.setBrightness(gBri);
     showLEDs();
     testMode = false;  // Выходим из тест-режима
 
@@ -573,6 +860,7 @@ void setup() {
   });
 
   server.on("/api/spd", HTTP_ANY, []() {
+    lastRequestTime = millis();
     // CORS заголовки
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -597,6 +885,7 @@ void setup() {
   });
 
   server.on("/api/zones", HTTP_POST, []() {
+    lastRequestTime = millis();
     // CORS заголовки
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -622,7 +911,8 @@ void setup() {
     Serial.println("[POWER] Main power OFF - stopping all blocks first");
     Mega1Serial.println("ALL:STOP");
     Mega2Serial.println("ALL:STOP");
-    FastLED.clear(true);
+    memset(leds, 0, sizeof(leds));
+    showLEDs();
     delay(500);
     digitalWrite(RELAY_MAIN_POWER, LOW);
     mainPowerOn = false;
@@ -652,6 +942,7 @@ void setup() {
     server.send(204);
   });
   server.on("/api/test", HTTP_GET, []() {
+    lastRequestTime = millis();
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -679,7 +970,9 @@ void setup() {
     testMode = true;
 
     bool noclear = server.arg("noclear") == "1";
-    if (!noclear) FastLED.clear();
+    if (!noclear) {
+      memset(leds, 0, sizeof(leds));
+    }
 
     if (allStrips) {
       for (int s = 0; s < NUM_STRIPS; s++) {
@@ -730,11 +1023,13 @@ void setup() {
     server.send(204);
   });
   server.on("/api/clear", HTTP_GET, []() {
+    lastRequestTime = millis();
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
     testMode = false;  // Выходим из тест-режима
-    FastLED.clear(true);
+    memset(leds, 0, sizeof(leds));
+    showLEDs();
     Serial.println("[TEST] All LEDs cleared");
     server.send(200, "application/json", "{\"ok\":true}");
   });
@@ -747,12 +1042,13 @@ void setup() {
     server.send(204);
   });
   server.on("/api/info", HTTP_GET, []() {
+    lastRequestTime = millis();
     server.sendHeader("Access-Control-Allow-Origin", "*");
     server.sendHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
     server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
 
     String json = "{\"strips\":[";
-    const char* names[] = {"Ray 1","Ray 2","Ray 3","Ray 4","Ray 5","Ray 6","Short Line","Inner Circle","Big Circle"};
+    const char* names[] = {"Big Circle","Ray 1","Ray 2","Ray 3","Ray 4","Ray 5","Short Line","Inner Circle","Ray 6"};
     for (int i = 0; i < NUM_STRIPS; i++) {
       if (i > 0) json += ",";
       json += "{\"idx\":" + String(i) +
@@ -789,6 +1085,43 @@ void setup() {
   server.begin();
   Serial.println("[SERVER] Started on port 80");
 
+  // ===== OTA (Over-The-Air) Setup =====
+  ArduinoOTA.setHostname("RAMS-ESP32");
+  ArduinoOTA.setPassword("rams2026");
+
+  ArduinoOTA.onStart([]() {
+    Serial.println("[OTA] Update Start");
+    // Гасим все светодиоды для безопасности перед прошивкой
+    for (int s = 0; s < NUM_STRIPS; s++) {
+      memset(leds[s], 0, MAX_LEDS * sizeof(CRGB));
+    }
+    showLEDs();
+    
+    // Отправляем команду СТОП на обе Mega платы
+    Mega1Serial.println("ALL:STOP");
+    Mega2Serial.println("ALL:STOP");
+  });
+
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\n[OTA] Update Complete!");
+  });
+
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("[OTA] Progress: %u%%\r", (progress / (total / 100)));
+  });
+
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("[OTA] Error[%u]: ", error);
+    if      (error == OTA_AUTH_ERROR)    Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR)   Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR)     Serial.println("End Failed");
+  });
+
+  ArduinoOTA.begin();
+  Serial.println("[OTA] Ready");
+
   Serial.println("[READY] System initialized!\n");
 }
 
@@ -796,141 +1129,249 @@ void setup() {
 // LED УПРАВЛЕНИЕ ДЛЯ БЛОКОВ
 // ============================================================================
 
+void setSegmentColor(uint8_t stripIdx, uint16_t start, uint16_t end, CRGB color) {
+  if (stripIdx >= NUM_STRIPS) return;
+  uint16_t limit = PIN_LEDS[stripIdx];
+  for (uint16_t i = start; i <= end && i < limit; i++) {
+    leds[stripIdx][i] = color;
+  }
+}
+
+void updateBlockLEDs(int blockNum, CRGB color) {
+  switch (blockNum) {
+    case 1: // NOMAD
+      setSegmentColor(8, 60, 109, color);
+      setSegmentColor(6, 0, 48, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 29, 102, color);
+      }
+      break;
+    case 2: // GRANDE VIE
+      setSegmentColor(6, 0, 48, color);
+      setSegmentColor(2, 60, 109, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 0, 28, color);
+        setSegmentColor(0, 496, 530, color);
+      }
+      break;
+    case 3: // RAMS CITY ALMATY
+      setSegmentColor(8, 0, 59, color);
+      setSegmentColor(2, 0, 59, color);
+      setSegmentColor(7, 0, 18, color);
+      setSegmentColor(7, 128, 145, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 0, 102, color);
+        setSegmentColor(0, 496, 530, color);
+      }
+      break;
+    case 4: // KERUEN CITY
+      setSegmentColor(2, 60, 109, color);
+      setSegmentColor(5, 60, 109, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 430, 495, color);
+      }
+      break;
+    case 5: // HYATT REGENCY
+      setSegmentColor(5, 0, 59, color);
+      setSegmentColor(2, 0, 59, color);
+      setSegmentColor(7, 109, 127, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 430, 495, color);
+      }
+      break;
+    case 6: // RAMS GARDEN BAHCELIEVLER
+      setSegmentColor(5, 60, 109, color);
+      setSegmentColor(3, 60, 109, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 363, 429, color);
+      }
+      break;
+    case 7: // BAITEREK SCHOOL
+      setSegmentColor(3, 0, 59, color);
+      setSegmentColor(5, 0, 59, color);
+      setSegmentColor(7, 91, 109, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 363, 429, color);
+      }
+      break;
+    case 8: // RAMS RESORT BODRUM
+      setSegmentColor(3, 60, 109, color);
+      setSegmentColor(4, 60, 109, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 303, 363, color);
+      }
+      break;
+    case 9: // RAMS CITY GAZIANTEP
+      setSegmentColor(3, 0, 59, color);
+      setSegmentColor(4, 0, 59, color);
+      setSegmentColor(7, 74, 91, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 303, 363, color);
+      }
+      break;
+    case 10: // RAMS CITY HALIC 2
+      setSegmentColor(4, 60, 109, color);
+      setSegmentColor(1, 60, 109, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 225, 303, color);
+      }
+      break;
+    case 11: // RAMS CITY HALIC 1
+      setSegmentColor(7, 53, 74, color);
+      setSegmentColor(1, 0, 59, color);
+      setSegmentColor(4, 0, 59, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 225, 303, color);
+      }
+      break;
+    case 12: // PARK HOUSE MASLAK
+      setSegmentColor(1, 60, 109, color);
+      setSegmentColor(8, 60, 109, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 103, 225, color);
+      }
+      break;
+    case 13: // SAKURA
+      setSegmentColor(1, 0, 59, color);
+      setSegmentColor(8, 0, 59, color);
+      setSegmentColor(7, 19, 52, color);
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
+        setSegmentColor(0, 103, 225, color);
+      }
+      break;
+    default:
+      break;
+  }
+}
+
 /**
- * Включить LED зону для блока
- *
- * Логика маппинга:
- * - ВНЕШНИЕ блоки (1,3,5,7,9,11,13,15): внешняя часть лучей + внешний круг
- * - ВНУТРЕННИЕ блоки (2,4,6,8,10,12,14): внутренняя часть лучей + внутренний круг
- * - Блок 15 (особый): ПОЛНЫЕ лучи + внутренний круг, БЕЗ внешнего круга
+ * Проверяет, принадлежит ли конкретный светодиод (stripIdx, pixelIdx) к LED зоне указанного блока.
+ */
+bool isPixelInBlock(int blockNum, uint8_t stripIdx, uint16_t pixelIdx) {
+  switch (blockNum) {
+    case 1: // NOMAD
+      if (stripIdx == 8 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (stripIdx == 6 && pixelIdx >= 0 && pixelIdx <= 48) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 29 && pixelIdx <= 102) return true;
+      break;
+    case 2: // GRANDE VIE
+      if (stripIdx == 6 && pixelIdx >= 0 && pixelIdx <= 48) return true;
+      if (stripIdx == 2 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && ( (pixelIdx >= 0 && pixelIdx <= 28) || (pixelIdx >= 496 && pixelIdx <= 530) )) return true;
+      break;
+    case 3: // RAMS CITY ALMATY
+      if (stripIdx == 8 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 2 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 7 && ( (pixelIdx >= 0 && pixelIdx <= 18) || (pixelIdx >= 128 && pixelIdx <= 145) )) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && ( (pixelIdx >= 0 && pixelIdx <= 102) || (pixelIdx >= 496 && pixelIdx <= 530) )) return true;
+      break;
+    case 4: // KERUEN CITY
+      if (stripIdx == 2 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (stripIdx == 5 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 430 && pixelIdx <= 495) return true;
+      break;
+    case 5: // HYATT REGENCY
+      if (stripIdx == 5 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 2 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 7 && pixelIdx >= 109 && pixelIdx <= 127) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 430 && pixelIdx <= 495) return true;
+      break;
+    case 6: // RAMS GARDEN BAHCELIEVLER
+      if (stripIdx == 5 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (stripIdx == 3 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 363 && pixelIdx <= 429) return true;
+      break;
+    case 7: // BAITEREK SCHOOL
+      if (stripIdx == 3 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 5 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 7 && pixelIdx >= 91 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 363 && pixelIdx <= 429) return true;
+      break;
+    case 8: // RAMS RESORT BODRUM
+      if (stripIdx == 3 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (stripIdx == 4 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 303 && pixelIdx <= 363) return true;
+      break;
+    case 9: // RAMS CITY GAZIANTEP
+      if (stripIdx == 3 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 4 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 7 && pixelIdx >= 74 && pixelIdx <= 91) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 303 && pixelIdx <= 363) return true;
+      break;
+    case 10: // RAMS CITY HALIC 2
+      if (stripIdx == 4 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (stripIdx == 1 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 225 && pixelIdx <= 303) return true;
+      break;
+    case 11: // RAMS CITY HALIC 1
+      if (stripIdx == 7 && pixelIdx >= 53 && pixelIdx <= 74) return true;
+      if (stripIdx == 1 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 4 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 225 && pixelIdx <= 303) return true;
+      break;
+    case 12: // PARK HOUSE MASLAK
+      if (stripIdx == 1 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (stripIdx == 8 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 103 && pixelIdx <= 225) return true;
+      break;
+    case 13: // SAKURA
+      if (stripIdx == 1 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 8 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 7 && pixelIdx >= 19 && pixelIdx <= 52) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 103 && pixelIdx <= 225) return true;
+      break;
+  }
+  return false;
+}
+
+/**
+ * Плавное нарастание LED зоны (UP) — 4 секунды от 0 до макс. яркости
  */
 void lightUpBlock(int blockNum) {
   if (blockNum < 1 || blockNum > TOTAL_BLOCKS) {
     Serial.printf("[LED] Block %d - invalid block number\n", blockNum);
     return;
   }
+  // Отменить любой текущий fade для этого блока
+  fadeStates[blockNum].isActive = false;
 
-  // Определяем долю пиццы (0-7) на основе блока
-  // Блоки 1-2 → доля 0
-  // Блоки 3-4 → доля 1
-  // ...
-  // Блоки 15 → доля 7
-  int sector = (blockNum - 1) / 2;  // 0-7
-  bool isOuter = (blockNum % 2 == 1);  // Нечетные = внешние
+  // Запустить fade-IN анимацию
+  fadeStates[blockNum].isActive  = true;
+  fadeStates[blockNum].fadeIn    = true;
+  fadeStates[blockNum].startTime = millis();
+  fadeStates[blockNum].duration  = LED_FADE_DURATION_MS;
 
-  uint8_t L = RAY[sector];              // Левый луч
-  uint8_t R = RAY[(sector + 1) % 8];    // Правый луч
-
-  CRGB color = CRGB(gR, gG, gB);
-
-  if (blockNum == 15) {
-    // Блок 15 (особый): ПОЛНЫЕ лучи + внутренний круг, БЕЗ внешнего круга
-    for (int j = 0; j < 33; j++) {
-      leds[L][j] = color;
-      leds[R][j] = color;
-    }
-    for (int j = 0; j < INNER_COUNT[sector]; j++) {
-      leds[S_INNER][INNER_START[sector] + j] = color;
-    }
-    Serial.printf("[LED] Block 15 ON (sector %d, FULL rays + inner)\n", sector);
-  }
-  else if (isOuter) {
-    // ВНЕШНИЕ блоки (1,3,5,7,9,11,13): внешняя часть лучей + внешний круг
-    for (int j = RAY_OUT_START; j < RAY_OUT_START + RAY_OUT_COUNT; j++) {
-      leds[L][j] = color;
-      leds[R][j] = color;
-    }
-    for (int j = 0; j < OUTER_COUNT[sector]; j++) {
-      leds[S_OUTER][OUTER_START[sector] + j] = color;
-    }
-    Serial.printf("[LED] Block %d OUTER ON (sector %d, rays %d-%d)\n", blockNum, sector, L, R);
-  }
-  else {
-    // ВНУТРЕННИЕ блоки (2,4,6,8,10,12,14): внутренняя часть лучей + оба круга
-    for (int j = RAY_IN_START; j < RAY_IN_START + RAY_IN_COUNT; j++) {
-      leds[L][j] = color;
-      leds[R][j] = color;
-    }
-    // Маленький круг (внутренний)
-    for (int j = 0; j < INNER_COUNT[sector]; j++) {
-      leds[S_INNER][INNER_START[sector] + j] = color;
-    }
-    // Большой круг (внешний отрезок) - ДОБАВЛЕНО!
-    for (int j = 0; j < OUTER_COUNT[sector]; j++) {
-      leds[S_OUTER][OUTER_START[sector] + j] = color;
-    }
-    Serial.printf("[LED] Block %d INNER ON (sector %d, rays %d-%d + both circles)\n", blockNum, sector, L, R);
-  }
-
-  showLEDs();
+  Serial.printf("[LED] Block %d FADE-IN started (%dms)\n", blockNum, LED_FADE_DURATION_MS);
 }
 
 /**
- * Fade LED зоны для блока (плавное угасание синхронно с опусканием актуатора)
+ * Плавное угасание LED зоны (DOWN) — 4 секунды от макс. яркости до 0
  */
 void fadeBlock(int blockNum) {
   if (blockNum < 1 || blockNum > TOTAL_BLOCKS) {
     return;
   }
+  // Отменить любой текущий fade для этого блока
+  fadeStates[blockNum].isActive = false;
 
-  // Запустить fade анимацию с тем же duration что у актуатора
-  fadeStates[blockNum].isActive = true;
+  // Запустить fade-OUT анимацию
+  fadeStates[blockNum].isActive  = true;
+  fadeStates[blockNum].fadeIn    = false;
   fadeStates[blockNum].startTime = millis();
-  fadeStates[blockNum].duration = blockStates[blockNum].duration;
+  fadeStates[blockNum].duration  = LED_FADE_DURATION_MS;
 
-  Serial.printf("[LED] Block %d FADE started (%dms)\n", blockNum, fadeStates[blockNum].duration);
+  Serial.printf("[LED] Block %d FADE-OUT started (%dms)\n", blockNum, LED_FADE_DURATION_MS);
 }
 
 /**
- * Выключить LED зону для блока
+ * Мгновенное выключение LED зоны для блока (STOP)
  */
 void turnOffBlock(int blockNum) {
   if (blockNum < 1 || blockNum > TOTAL_BLOCKS) {
     return;
   }
-
-  int sector = (blockNum - 1) / 2;  // 0-7
-  bool isOuter = (blockNum % 2 == 1);  // Нечетные = внешние
-
-  uint8_t L = RAY[sector];
-  uint8_t R = RAY[(sector + 1) % 8];
-
-  if (blockNum == 15) {
-    // Блок 15: выключить полные лучи + внутренний круг
-    for (int j = 0; j < 33; j++) {
-      leds[L][j] = CRGB::Black;
-      leds[R][j] = CRGB::Black;
-    }
-    for (int j = 0; j < INNER_COUNT[sector]; j++) {
-      leds[S_INNER][INNER_START[sector] + j] = CRGB::Black;
-    }
-  }
-  else if (isOuter) {
-    // ВНЕШНИЕ блоки: выключить внешнюю часть лучей + внешний круг
-    for (int j = RAY_OUT_START; j < RAY_OUT_START + RAY_OUT_COUNT; j++) {
-      leds[L][j] = CRGB::Black;
-      leds[R][j] = CRGB::Black;
-    }
-    for (int j = 0; j < OUTER_COUNT[sector]; j++) {
-      leds[S_OUTER][OUTER_START[sector] + j] = CRGB::Black;
-    }
-  }
-  else {
-    // ВНУТРЕННИЕ блоки: выключить внутреннюю часть лучей + оба круга
-    for (int j = RAY_IN_START; j < RAY_IN_START + RAY_IN_COUNT; j++) {
-      leds[L][j] = CRGB::Black;
-      leds[R][j] = CRGB::Black;
-    }
-    // Маленький круг (внутренний)
-    for (int j = 0; j < INNER_COUNT[sector]; j++) {
-      leds[S_INNER][INNER_START[sector] + j] = CRGB::Black;
-    }
-    // Большой круг (внешний отрезок) - ДОБАВЛЕНО!
-    for (int j = 0; j < OUTER_COUNT[sector]; j++) {
-      leds[S_OUTER][OUTER_START[sector] + j] = CRGB::Black;
-    }
-  }
-
+  fadeStates[blockNum].isActive = false;  // Отменить любой fade
+  updateBlockLEDs(blockNum, CRGB::Black);
   showLEDs();
   Serial.printf("[LED] Block %d OFF\n", blockNum);
 }
@@ -956,51 +1397,22 @@ void fxPulse() {
 
   if (!anyActiveLed) {
     for (int s = 0; s < NUM_STRIPS; s++) {
+      if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
       fill_solid(leds[s], PIN_LEDS[s], c);
     }
     return;
   }
 
-  // Применить к активным блокам (проверяем LED состояние, не актуатор!)
+  // Очищаем все светодиоды перед выводом активных зон
+  for (int s = 0; s < NUM_STRIPS; s++) {
+    fill_solid(leds[s], PIN_LEDS[s], CRGB::Black);
+  }
+
+  // Применяем пульсацию только к светодиодам активных блоков (без fade-out)
   for (int i = 1; i <= TOTAL_BLOCKS; i++) {
-    if (!ledStates[i]) continue;  // ✅ Проверяем LED состояние
-    if (fadeStates[i].isActive) continue;  // ✅ Пропускаем блоки в fade!
-
-    int sector = (i - 1) / 2;
-    bool isOuter = (i % 2 == 1);
-    uint8_t L = RAY[sector];
-    uint8_t R = RAY[(sector + 1) % 8];
-
-    if (i == 15) {
-      for (int j = 0; j < 33; j++) {
-        leds[L][j] = c;
-        leds[R][j] = c;
-      }
-      for (int j = 0; j < INNER_COUNT[sector]; j++) {
-        leds[S_INNER][INNER_START[sector] + j] = c;
-      }
-    }
-    else if (isOuter) {
-      for (int j = RAY_OUT_START; j < RAY_OUT_START + RAY_OUT_COUNT; j++) {
-        leds[L][j] = c;
-        leds[R][j] = c;
-      }
-      for (int j = 0; j < OUTER_COUNT[sector]; j++) {
-        leds[S_OUTER][OUTER_START[sector] + j] = c;
-      }
-    }
-    else {
-      for (int j = RAY_IN_START; j < RAY_IN_START + RAY_IN_COUNT; j++) {
-        leds[L][j] = c;
-        leds[R][j] = c;
-      }
-      for (int j = 0; j < INNER_COUNT[sector]; j++) {
-        leds[S_INNER][INNER_START[sector] + j] = c;
-      }
-      for (int j = 0; j < OUTER_COUNT[sector]; j++) {
-        leds[S_OUTER][OUTER_START[sector] + j] = c;
-      }
-    }
+    if (!ledStates[i]) continue;
+    if (fadeStates[i].isActive) continue; // Пропускаем те, что в fade
+    updateBlockLEDs(i, c);
   }
 }
 
@@ -1012,6 +1424,7 @@ void fxRainbow() {
   hue += map(gSpd, 0, 255, 1, 5);
 
   for (int s = 0; s < NUM_STRIPS; s++) {
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     for (uint16_t j = 0; j < PIN_LEDS[s]; j++) {
       leds[s][j] = CHSV(hue + j * 3 + s * 25, 255, 255);
     }
@@ -1029,25 +1442,23 @@ void fxRainbow() {
     return; // Если нет активных блоков, радуга идет по всем лентам
   }
 
-  // Применить маску активных блоков (проверяем LED состояние!)
+  // Применить маску активных блоков
   for (int s = 0; s < NUM_STRIPS; s++) {
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     for (uint16_t j = 0; j < PIN_LEDS[s]; j++) {
       bool inActiveBlock = false;
       for (int i = 1; i <= TOTAL_BLOCKS; i++) {
-        if (!ledStates[i]) continue;  // ✅ Проверяем LED состояние
-        if (fadeStates[i].isActive) continue;  // ✅ Пропускаем блоки в fade!
+        if (!ledStates[i]) continue;
+        if (fadeStates[i].isActive) continue; // Пропускаем те, что в fade
 
-        int sector = (i - 1) / 2;
-        bool isOuter = (i % 2 == 1);
-        uint8_t L = RAY[sector];
-        uint8_t R = RAY[(sector + 1) % 8];
-
-        if (s == L || s == R || s == S_INNER || s == S_OUTER) {
+        if (isPixelInBlock(i, s, j)) {
           inActiveBlock = true;
           break;
         }
       }
-      if (!inActiveBlock) leds[s][j] = CRGB::Black;
+      if (!inActiveBlock) {
+        leds[s][j] = CRGB::Black;
+      }
     }
   }
 }
@@ -1066,6 +1477,7 @@ void fxChase() {
   }
 
   for (int s = 0; s < NUM_STRIPS; s++) {
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     uint16_t n = PIN_LEDS[s];
     fill_solid(leds[s], n, CRGB::Black);
     uint16_t p = pos % n;
@@ -1087,6 +1499,7 @@ void fxSparkle() {
   uint8_t rate = map(gSpd, 0, 255, 30, 180);
 
   for (int s = 0; s < NUM_STRIPS; s++) {
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     for (uint16_t j = 0; j < PIN_LEDS[s]; j++) {
       leds[s][j].nscale8(170);
     }
@@ -1105,6 +1518,7 @@ void fxWave() {
   phase += map(gSpd, 0, 255, 50, 600);
 
   for (int s = 0; s < NUM_STRIPS; s++) {
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     for (uint16_t j = 0; j < PIN_LEDS[s]; j++) {
       leds[s][j].setRGB(gR, gG, gB);
       leds[s][j].nscale8(sin8((uint8_t)(j * 255 / PIN_LEDS[s]) + (phase >> 8) + s * 40));
@@ -1120,6 +1534,7 @@ void fxFire() {
   uint8_t spark = map(gSpd, 0, 255, 60, 200);
 
   for (int s = 0; s < NUM_STRIPS; s++) {
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     uint16_t n = PIN_LEDS[s];
 
     // Cooling
@@ -1159,6 +1574,7 @@ void fxMeteor() {
   }
 
   for (int s = 0; s < NUM_STRIPS; s++) {
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     uint16_t n = PIN_LEDS[s];
 
     // Fade
@@ -1194,6 +1610,7 @@ void fxStrobe() {
 
   CRGB c = strobeOn ? CRGB(gR, gG, gB) : CRGB::Black;
   for (int s = 0; s < NUM_STRIPS; s++) {
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     fill_solid(leds[s], PIN_LEDS[s], c);
   }
 }
@@ -1212,6 +1629,7 @@ void fxColorWipe() {
   }
 
   for (int s = 0; s < NUM_STRIPS; s++) {
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     uint16_t n = PIN_LEDS[s];
     uint32_t cur = pos % (n * 2);
     for (uint16_t j = 0; j < n; j++) {
@@ -1225,6 +1643,7 @@ void fxColorWipe() {
  */
 void fxTwinkle() {
   for (int s = 0; s < NUM_STRIPS; s++) {
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     for (uint16_t j = 0; j < PIN_LEDS[s]; j++) {
       leds[s][j].nscale8(230);
     }
@@ -1232,6 +1651,7 @@ void fxTwinkle() {
   uint8_t count = map(gSpd, 0, 255, 1, 8);
   for (int k = 0; k < count; k++) {
     int s = random8(NUM_STRIPS);
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     uint16_t p = random16() % PIN_LEDS[s];
     leds[s][p] = CRGB(gR, gG, gB);
     leds[s][p].nscale8(random8(100, 255));
@@ -1246,6 +1666,7 @@ void fxRipple() {
   phase += map(gSpd, 0, 255, 100, 2000);
 
   for (int s = 0; s < NUM_STRIPS; s++) {
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     uint16_t n = PIN_LEDS[s];
     uint16_t center = n / 2;
     for (uint16_t j = 0; j < n; j++) {
@@ -1266,6 +1687,7 @@ void fxBreathing() {
   CRGB c(gR, gG, gB);
   c.nscale8(brightness);
   for (int s = 0; s < NUM_STRIPS; s++) {
+    if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     fill_solid(leds[s], PIN_LEDS[s], c);
   }
 }
@@ -1275,14 +1697,67 @@ void fxBreathing() {
 // ============================================================================
 
 void loop() {
+  ArduinoOTA.handle();
+  server.handleClient();
+
+  // ===== АВТОМАТИЧЕСКАЯ СМЕНА ЭФФЕКТОВ И ЦВЕТОВ =====
+  if (autoMode) {
+    unsigned long currentMillis = millis();
+    if (currentMillis - lastAutoChange > AUTO_CHANGE_INTERVAL) {
+      lastAutoChange = currentMillis;
+      
+      // Переключаем цвет
+      CRGB nextColor = AUTO_COLORS[autoColorIndex];
+      gR = nextColor.r;
+      gG = nextColor.g;
+      gB = nextColor.b;
+      
+      // Переключаем эффект
+      gFx = AUTO_EFFECTS[autoEffectIndex];
+      
+      Serial.printf("[AUTO] Switched to effect %d, color RGB(%d,%d,%d)\n", gFx, gR, gG, gB);
+      
+      // Переходим к следующим индексам
+      autoColorIndex = (autoColorIndex + 1) % AUTO_COLORS_COUNT;
+      autoEffectIndex = (autoEffectIndex + 1) % AUTO_EFFECTS_COUNT;
+    }
+  }
+
+  // ===== WiFi Reconnection and Auto-Restart Monitoring =====
+  static unsigned long lastWifiCheck = 0;
+  static unsigned long disconnectTime = 0;
+  unsigned long currentMillis = millis();
+  
+  if (currentMillis - lastWifiCheck > 5000) { // Check every 5 seconds
+    lastWifiCheck = currentMillis;
+    if (WiFi.getMode() == WIFI_STA) {
+      if (WiFi.status() != WL_CONNECTED) {
+        if (disconnectTime == 0) {
+          disconnectTime = currentMillis;
+          Serial.println("[WIFI] Connection lost! Monitoring for reconnect...");
+        } else if (currentMillis - disconnectTime > 30000) { // If disconnected for over 30 seconds
+          Serial.println("[WIFI] Reconnection failed for 30s. Auto-restarting ESP32 to clear networking stack...");
+          delay(500);
+          ESP.restart();
+        }
+      } else {
+        disconnectTime = 0; // Connection is healthy
+      }
+    }
+  }
+
   // Тест-режим: немедленный выход из loop() чтобы
   // ничто не перезаписало LED, установленные через /api/test
   if (testMode) {
-    server.handleClient();
     return;
   }
 
-  server.handleClient();
+  // Если недавно был веб-запрос, пропускаем шаг анимации и вывод на светодиоды.
+  // Это предотвращает мерцание из-за прерываний Wi-Fi во время сетевого обмена.
+  // Снижено с 250мс до 50мс для обеспечения высокой плавности анимации (микрофризы устранены).
+  if (millis() - lastRequestTime < 50) {
+    return;
+  }
 
   // ===== ЧТЕНИЕ ОТВЕТОВ ОТ MEGA =====
   if (Mega1Serial.available()) {
@@ -1319,14 +1794,23 @@ void loop() {
     if (blockStates[i].isActive) {
       unsigned long elapsed = now - blockStates[i].startTime;
 
-      if (elapsed >= blockStates[i].duration) {
+      if (elapsed >= (unsigned long)blockStates[i].duration) {
         Serial.printf("[TIMEOUT] Block %d - actuator stopped, LED stays ON\n", i);
 
         // Блок больше не активен (актуатор остановился)
         blockStates[i].isActive = false;
 
-        // НЕ выключаем LED! LED остается включенным до STOP/DOWN
-        // turnOffBlock(i);  ← УБРАНО
+        // Отправляем команду STOP на Mega с duration=0
+        // (Mega обработает это как STOP независимо от длительности)
+        String stopCmd = "BLOCK:" + String(i) + ":STOP:0";
+        const BlockConfig* cfg = getBlockConfig(i);
+        if (cfg->megaNum == 1) {
+          Mega1Serial.println(stopCmd);
+          Serial.println("[MEGA1 TX TIMEOUT] " + stopCmd);
+        } else {
+          Mega2Serial.println(stopCmd);
+          Serial.println("[MEGA2 TX TIMEOUT] " + stopCmd);
+        }
 
         // Пересчитать активные
         activeBlocksCount = 0;
@@ -1353,7 +1837,8 @@ void loop() {
         Serial.println("[BUTTON] Power OFF - stopping all blocks");
         Mega1Serial.println("ALL:STOP");
         Mega2Serial.println("ALL:STOP");
-        FastLED.clear(true);
+        memset(leds, 0, sizeof(leds));
+        showLEDs();
         for (int i = 1; i <= TOTAL_BLOCKS; i++) {
           blockStates[i].isActive = false;
         }
@@ -1366,74 +1851,53 @@ void loop() {
 
   // ===== HEARTBEAT (PING каждые 2 сек) =====
   if (now - lastHeartbeat > HEARTBEAT_INTERVAL) {
+    mega1Alive = false;
+    mega2Alive = false;
     Mega1Serial.println(CMD_PING);
     Mega2Serial.println(CMD_PING);
     lastHeartbeat = now;
   }
 
-  // ===== ПЛАВНОЕ УГАСАНИЕ LED ПРИ ОПУСКАНИИ =====
-  // Обрабатываем fade для каждого блока
+  // ===== ПЛАВНОЕ НАРАСТАНИЕ (UP) И УГАСАНИЕ (DOWN) LED =====
+  static bool pendingShow = false;
+
   for (int i = 1; i <= TOTAL_BLOCKS; i++) {
-    if (fadeStates[i].isActive) {
-      unsigned long elapsed = now - fadeStates[i].startTime;
+    if (!fadeStates[i].isActive) continue;
 
-      if (elapsed >= fadeStates[i].duration) {
-        // Fade завершен - выключаем LED полностью
-        fadeStates[i].isActive = false;
-        turnOffBlock(i);
-        Serial.printf("[LED] Block %d FADE completed\n", i);
+    unsigned long elapsed = now - fadeStates[i].startTime;
+
+    if (elapsed >= (unsigned long)fadeStates[i].duration) {
+      // Анимация завершена
+      fadeStates[i].isActive = false;
+      if (fadeStates[i].fadeIn) {
+        // Fade-IN завершен → зафиксировать макс. яркость
+        CRGB fullColor = CRGB(gR, gG, gB);
+        updateBlockLEDs(i, fullColor);
+        Serial.printf("[LED] Block %d FADE-IN complete (full brightness)\n", i);
       } else {
-        // Продолжаем fade - плавно уменьшаем яркость
-        float progress = (float)elapsed / (float)fadeStates[i].duration;  // 0.0 - 1.0
-        uint8_t fadeBrightness = (uint8_t)(255 * (1.0 - progress));       // 255 → 0
-
-        // Создаем цвет с учетом fade
-        CRGB fadeColor = CRGB(gR, gG, gB);
-        fadeColor.nscale8(fadeBrightness);
-
-        // Получаем координаты блока
-        int sector = (i - 1) / 2;
-        bool isOuter = (i % 2 == 1);
-        uint8_t L = RAY[sector];
-        uint8_t R = RAY[(sector + 1) % 8];
-
-        // Применяем fade цвет к LED этого блока
-        if (i == 15) {
-          // Блок 15: полные лучи + внутренний круг
-          for (int j = 0; j < 33; j++) {
-            leds[L][j] = fadeColor;
-            leds[R][j] = fadeColor;
-          }
-          for (int j = 0; j < INNER_COUNT[sector]; j++) {
-            leds[S_INNER][INNER_START[sector] + j] = fadeColor;
-          }
-        }
-        else if (isOuter) {
-          // ВНЕШНИЕ блоки: внешняя часть лучей + внешний круг
-          for (int j = RAY_OUT_START; j < RAY_OUT_START + RAY_OUT_COUNT; j++) {
-            leds[L][j] = fadeColor;
-            leds[R][j] = fadeColor;
-          }
-          for (int j = 0; j < OUTER_COUNT[sector]; j++) {
-            leds[S_OUTER][OUTER_START[sector] + j] = fadeColor;
-          }
-        }
-        else {
-          // ВНУТРЕННИЕ блоки: внутренняя часть лучей + оба круга
-          for (int j = RAY_IN_START; j < RAY_IN_START + RAY_IN_COUNT; j++) {
-            leds[L][j] = fadeColor;
-            leds[R][j] = fadeColor;
-          }
-          for (int j = 0; j < INNER_COUNT[sector]; j++) {
-            leds[S_INNER][INNER_START[sector] + j] = fadeColor;
-          }
-          for (int j = 0; j < OUTER_COUNT[sector]; j++) {
-            leds[S_OUTER][OUTER_START[sector] + j] = fadeColor;
-          }
-        }
-
-        showLEDs();
+        // Fade-OUT завершен → выключить полностью
+        updateBlockLEDs(i, CRGB::Black);
+        Serial.printf("[LED] Block %d FADE-OUT complete (off)\n", i);
       }
+      pendingShow = true;
+    } else {
+      // Вычисляем прогресс 0.0 → 1.0
+      float progress = (float)elapsed / (float)fadeStates[i].duration;
+
+      uint8_t brightness;
+      if (fadeStates[i].fadeIn) {
+        // Нарастание: 0 → 255, с плавной ease-in кривой (quadratic)
+        brightness = (uint8_t)(255.0f * progress * progress);
+      } else {
+        // Угасание: 255 → 0, с плавной ease-out кривой
+        float inv = 1.0f - progress;
+        brightness = (uint8_t)(255.0f * inv * inv);
+      }
+
+      CRGB fadeColor = CRGB(gR, gG, gB);
+      fadeColor.nscale8(brightness);
+      updateBlockLEDs(i, fadeColor);
+      pendingShow = true;
     }
   }
 
@@ -1465,7 +1929,18 @@ void loop() {
         case 12: fxBreathing();break;
       }
 
+      pendingShow = true;
+    }
+  }
+
+  // ===== ВЫВОД НА СВЕТОДИОДЫ (С ОГРАНИЧЕНИЕМ ЧАСТОТЫ ДО 50 FPS) =====
+  static unsigned long lastShowTime = 0;
+  if (pendingShow) {
+    // Не отправляем данные чаще чем раз в 20 мс (~50 FPS)
+    if (now - lastShowTime >= 20) {
       showLEDs();
+      lastShowTime = now;
+      pendingShow = false;
     }
   }
 }

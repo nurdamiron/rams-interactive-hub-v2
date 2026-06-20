@@ -700,7 +700,290 @@ export const projectTranslations: Record<string, ProjectTranslation> = {
       { ru: "Чистый горный воздух", kk: "Таза тау ауасы", tr: "Temiz dağ havası", en: "Clean mountain air" },
     ],
   },
+
+  // ==================== 13 ЗОН КРУГА (v2) ====================
+
+  "01-nomad": {
+    title: { ru: "NOMAD", kk: "NOMAD", tr: "NOMAD", en: "NOMAD" },
+    subtitle: { ru: "Современный стиль", kk: "Заманауи стиль", tr: "Modern tarz", en: "Modern style" },
+    description: {
+      ru: "Современный жилой комплекс Nomad располагается в тихом и уютном Алмалинском районе неподалеку от улиц Толе би и Жарокова.\n\nДворы расположены на стилобате и оборудованы зонами отдыха, игровыми площадками с качелями и горками, спортивными площадками.",
+      kk: "Nomad заманауи тұрғын үй кешені Төле би және Жароков көшелерінен алыс емес тыныш және жайлы Алмалы ауданында орналасқан.\n\nАулалар стилобатта орналасқан және демалыс аймақтарымен, әткеншектер мен сырғанақтары бар ойын алаңдарымен, спорт алаңдарымен жабдықталған.",
+      tr: "Modern Nomad konut kompleksi, Tole bi ve Jarokov sokaklarına yakın sessiz ve rahat Almalinsky bölgesinde yer almaktadır.\n\nAvlular stilobat üzerinde yer almakta olup dinlenme alanları, salıncaklar ve kaydıraklarla donatılmış oyun alanları ve spor alanlarıyla donatılmıştır.",
+      en: "The modern Nomad residential complex is located in the quiet and cozy Almalinsky district not far from Tole bi and Zharokov streets.\n\nThe courtyards are located on a stylobate and equipped with recreation areas, playgrounds with swings and slides, and sports grounds."
+    },
+    status: { ru: "Сдан", kk: "Тапсырылды", tr: "Tamamlandı", en: "Completed" },
+    features: [
+      { ru: "Стадионы и спортивные площадки по близости", kk: "Жақын жердегі стадиондар мен спорт алаңдары", tr: "Yakınlarda stadyumlar ve spor alanları", en: "Stadiums and sports grounds nearby" },
+      { ru: "Развитая инфраструктура", kk: "Дамыған инфрақұрылым", tr: "Gelişmiş altyapı", en: "Developed infrastructure" },
+      { ru: "Лучшее предложение в своем сегменте", kk: "Өз сегментіндегі ең жақсы ұсыныс", tr: "Segmentindeki en iyi teklif", en: "Best offer in its segment" },
+      { ru: "Центр города", kk: "Қала орталығы", tr: "Şehir merkezi", en: "City center" },
+      { ru: "Детский сад на 200 мест на территории ЖК", kk: "ТҮК аумағында 200 орындық балабақша", tr: "Konut kompleksi alanında 200 kişilik anaokulu", en: "Kindergarten for 200 children on the complex territory" },
+      { ru: "Уютный двор на стилобате", kk: "Стилобаттағы жайлы аула", tr: "Stilobatta rahat avlu", en: "Cozy courtyard on the stylobate" },
+      { ru: "Большой подземный паркинг на 352 места", kk: "352 орынға арналған үлкен жер асты паркингі", tr: "352 araçlık büyük yeraltı otoparkı", en: "Large underground parking for 352 cars" },
+      { ru: "Современный дизайн", kk: "Заманауи дизайн", tr: "Modern tasarım", en: "Modern design" },
+      { ru: "Идеально подходящие семейные планировки", kk: "Отбасылық жоспарларға өте қолайлы", tr: "Aileler için ideal planlar", en: "Ideally suitable family layouts" },
+      { ru: "Сейсмостойкость", kk: "Сейсмикалық төзімділік", tr: "Depreme dayanıklılık", en: "Seismic resistance" }
+    ]
+  },
+
+  "02-grande-vie": {
+    title: { ru: "GRANDE VIE", kk: "GRANDE VIE", tr: "GRANDE VIE", en: "GRANDE VIE" },
+    subtitle: { ru: "Большая жизнь", kk: "Үлкен өмір", tr: "Büyük hayat", en: "Big life" },
+    description: {
+      ru: "Grande Vie – клубная резиденция, которая находится в живописной горной местности и одновременно близко к центру Алматы, в микрорайоне Ерменсай. Он максимально отвечает принципам экологичной организации жизни. Новостройка протянулась вдоль Ремизовского ущелья.",
+      kk: "Grande Vie – Ерменсай шағын ауданында орналасқан, көрікті тау бөктерінде және сонымен бірге Алматы орталығына жақын клубтық резиденция. Ол экологиялық өмір сүру принциптеріне барынша жауап береді. Жаңа құрылыс Ремизов шатқалының бойымен созылып жатыр.",
+      tr: "Grande Vie – Ermensay mahallesinde yer alan, pitoresk dağlık bölgede and aynı zamanda Almatı merkezine yakın kulüp rezidansı. Ekolojik yaşam standartlarına maksimum seviyede uymaktadır. Yeni yapı Remizovka vadisi boyunca uzanmaktadır.",
+      en: "Grande Vie – a club residence located in a picturesque mountainous area and at the same time close to the center of Almaty, in the Yermensay microdistrict. It responds as much as possible to the principles of eco-friendly living. The development stretches along the Remizovka gorge."
+    },
+    status: { ru: "Сдан", kk: "Тапсырылды", tr: "Tamamlandı", en: "Completed" },
+    features: [
+      { ru: "Прекрасная локация рядом с центром, в окружении гор", kk: "Орталыққа жақын, таулармен қоршалған тамаша орналасу", tr: "Merkeze yakın, dağlarla çevrili harika konum", en: "Excellent location near the center, surrounded by mountains" },
+      { ru: "ТРЦ Esentai Mall и VILLA в пяти минутах", kk: "Esentai Mall және VILLA СОО бес минуттық жерде", tr: "Esentai Mall ve VILLA AVM beş dakika mesafede", en: "Esentai Mall and VILLA mall in five minutes" },
+      { ru: "Элитные школы рядом", kk: "Жақын жердегі элиталық мектептер", tr: "Yakınlarda elit okullar", en: "Elite schools nearby" },
+      { ru: "Чистый горный воздух", kk: "Таза тау ауасы", tr: "Temiz dağ havası", en: "Clean mountain air" },
+      { ru: "Собственный парк с фонтанами и скульптурами", kk: "Фонтандары мен мүсіндері бар меншікті саябақ", tr: "Fıskiyeler ve heykellerle donatılmış özel park", en: "Private park with fountains and sculptures" },
+      { ru: "Панорамные окна с террасами", kk: "Террасалары бар панорамалық терезелер", tr: "Teraslı panoramik pencereler", en: "Panoramic windows with terraces" },
+      { ru: "12 зданий малой этажности", kk: "Аз қабатты 12 ғимарат", tr: "12 adet az katlı bina", en: "12 low-rise buildings" },
+      { ru: "Клубный формат с консьерж-сервисом", kk: "Консьерж-сервисі бар клубтық формат", tr: "Konsiyerj hizmeti sunan kulüp formatı", en: "Club format with concierge service" }
+    ]
+  },
+
+  "03-keruen-city": {
+    title: { ru: "KERUEN CITY", kk: "KERUEN CITY", tr: "KERUEN CITY", en: "KERUEN CITY" },
+    subtitle: { ru: "Столичный проект", kk: "Елордалық жоба", tr: "Başkent projesi", en: "Capital project" },
+    description: {
+      ru: "Keruen City — жилой комплекс, где пересекаются прошлое и будущее, создавая идеальные условия для вашей жизни. Здесь каждый уголок продуман до мелочей, чтобы ваша семья могла наслаждаться комфортом, безопасностью и красотой природы.",
+      kk: "Keruen City — өткен мен болашақ тоғысқан, сіздің өміріңіз үшін тамаша жағдайлар жасайтын тұрғын үй кешені. Мұнда отбасыңыз жайлылыққа, қауіпсіздікке және табиғат сұлулығына бөленуі үшін әрбір бұрыш егжей-тегжейлі ойластырылған.",
+      tr: "Keruen City — geçmiş ve geleceğin kesiştiği, yaşamınız için mükemmel koşullar sunan bir konut kompleksi. Burada ailenizin konfor, güvenlik ve doğa güzelliğinin tadını çıkarabilmesi için her detay düşünülmüştür.",
+      en: "Keruen City — a residential complex where the past and the future intersect, creating perfect conditions for your life. Here, every corner is thought out to the smallest detail so that your family can enjoy comfort, safety, and the beauty of nature."
+    },
+    status: { ru: "Строится", kk: "Салынуда", tr: "İnşaat Halinde", en: "Under Construction" },
+    features: [
+      { ru: "Зоны для отдыха", kk: "Демалыс аймақтары", tr: "Dinlenme alanları", en: "Recreation zones" },
+      { ru: "Игровые и спортивные площадки", kk: "Ойын және спорт алаңдары", tr: "Oyun ve spor alanları", en: "Playgrounds and sports fields" },
+      { ru: "Высокие потолки", kk: "Биік төбелер", tr: "Yüksek tavanlar", en: "High ceilings" },
+      { ru: "Авторский дизайн", kk: "Авторлық дизайн", tr: "Özel tasarım", en: "Signature design" },
+      { ru: "Рядом ТРЦ Aport Mall", kk: "Aport Mall СОО жанында", tr: "Aport Mall AVM yakınında", en: "Near Aport Mall" },
+      { ru: "Рынок Алтын Орда поблизости", kk: "Жақын жерде Алтын Орда базары", tr: "Altın Orda pazarı yakınlarında", en: "Altyn Orda market nearby" },
+      { ru: "Новая станция метро в будущем", kk: "Болашақта жаңа метро станциясы", tr: "Gelecekte yeni metro istasyonu", en: "New metro station in the future" },
+      { ru: "Современный подземный паркинг", kk: "Заманауи жер асты паркингі", tr: "Modern yeraltı otoparkı", en: "Modern underground parking" },
+      { ru: "Закрытые дворы без машин", kk: "Машинасыз жабық аулалар", tr: "Araçsız kapalı avlular", en: "Closed courtyards without cars" },
+      { ru: "Видеонаблюдение 24/7", kk: "Тәулік бойы видеобейнелеу", tr: "24/7 video güvenlik", en: "24/7 video surveillance" },
+      { ru: "Смарт-замки", kk: "Смарт-құлыптар", tr: "Akıllı kilitler", en: "Smart locks" }
+    ]
+  },
+
+  "04-rams-garden-bahcelievler": {
+    title: { ru: "RAMS GARDEN", kk: "RAMS GARDEN", tr: "RAMS GARDEN", en: "RAMS GARDEN" },
+    subtitle: { ru: "BAHCELIEVLER", kk: "BAHCELIEVLER", tr: "BAHÇELİEVLER", en: "BAHCELIEVLER" },
+    description: {
+      ru: "Премиальный жилой комплекс RAMS Garden Bahcelievler в Стамбуле предлагает зеленую и комфортную жизнь для всей семьи. Расположенный посреди обширного парка, он гармонично объединяет природу с городской инфраструктурой.",
+      kk: "Стамбулдағы RAMS Garden Bahcelievler премиум тұрғын үй кешені бүкіл отбасы үшін жасыл және жайлы өмірді ұсынады. Кең парктің ортасында орналасқан ол табиғатты қалалық инфрақұрылыммен үйлесімді біріктіреді.",
+      tr: "İstanbul'un merkezinde yer alan RAMS Garden Bahçelievler, geniş peyzaj alanları, modern mimarisi ve zengin sosyal donatıları ile aileniz için doğayla iç içe, huzurlu ve konforlu bir yaşam sunuyor.",
+      en: "RAMS Garden Bahcelievler in Istanbul offers a premium green lifestyle. Nestled in a massive park area, it perfectly blends nature with modern family apartments and urban convenience."
+    },
+    status: { ru: "Строится", kk: "Салынуда", tr: "İnşaat Halinde", en: "Under Construction" },
+    features: [
+      { ru: "Расположен в центре Стамбула", kk: "Стамбул орталығында орналасқан", tr: "İstanbul'un merkezinde konumlu", en: "Located in the center of Istanbul" },
+      { ru: "Огромный парк во внутреннем дворе", kk: "Ішкі ауладағы үлкен саябақ", tr: "İç avluda devasa park", en: "Huge park in the inner courtyard" },
+      { ru: "Богатая инфраструктура для всей семьи", kk: "Бүкіл отбасы үшін бай инфрақұрылым", tr: "Tüm aile için zengin altyapı", en: "Rich infrastructure for the whole family" },
+      { ru: "Материалы премиум-класса", kk: "Премиум-класс материалдары", tr: "Birinci sınıf malzemeler", en: "Premium-class materials" },
+      { ru: "Экологически чистое благоустройство", kk: "Экологиялық таза абаттандыру", tr: "Çevre dostu peyzaj", en: "Eco-friendly landscaping" },
+      { ru: "Круглосуточная охрана и видеонаблюдение", kk: "Тәулік бойы күзет және видеобейнелеу", tr: "7/24 güvenlik ve video takip", en: "24/7 security and video surveillance" },
+      { ru: "Просторные планировки", kk: "Кең жоспарлау шешімдері", tr: "Geniş daire planları", en: "Spacious layouts" },
+      { ru: "Детские игровые и спортивные площадки", kk: "Балалар ойын және спорт алаңдары", tr: "Çocuk oyun ve spor alanları", en: "Children's play and sports grounds" }
+    ]
+  },
+
+  "05-rams-resort-bodrum": {
+    title: { ru: "RAMS RESORT", kk: "RAMS RESORT", tr: "RAMS RESORT", en: "RAMS RESORT" },
+    subtitle: { ru: "BODRUM", kk: "BODRUM", tr: "BODRUM", en: "BODRUM" },
+    description: {
+      ru: "Элитный курортный комплекс на побережье Бодрума. Роскошные виллы и резиденции с панорамным видом на Эгейское море, собственным пляжем, бассейнами-инфинити и высококлассным сервисом пятизвездочного отеля.",
+      kk: "Бодрум жағалауындағы элиталық курорттық кешен. Эгей теңізіне панорамалық көрінісі бар сәнді виллалар мен резиденциялар, жеке жағажай, инфинити-бассейндер және бес жұлдызды қонақүй қызметі.",
+      tr: "Bodrum'un en prestijli koyunda konumlanan RAMS Resort Bodrum, Ege Denizi'nin panoramik manzarasına sahip lüks villaları, özel plajı ve beş yıldızlı otel konsepti ile elit bir yaşam sunmaktadır.",
+      en: "An elite luxury resort project on the coast of Bodrum. Featuring premium villas and residences with panoramic Aegean Sea views, private beach access, infinity pools, and five-star hotel services."
+    },
+    status: { ru: "Строится", kk: "Салынуда", tr: "İnşaat Halinde", en: "Under Construction" },
+    features: [
+      { ru: "Элитный курорт на побережье", kk: "Жағалаудағы элиталық курорт", tr: "Sahilde lüks tatil köyü", en: "Elite resort on the coast" },
+      { ru: "Виллы и резиденции с панорамным видом", kk: "Панорамалық көрінісі бар виллалар мен резиденциялар", tr: "Panoramik manzaralı villa ve rezidanslar", en: "Villas and residences with panoramic views" },
+      { ru: "Собственный чистый пляж", kk: "Жеке таза жағажай", tr: "Özel temiz plaj", en: "Private clean beach" },
+      { ru: "Бассейны-инфинити", kk: "Инфинити-бассейндер", tr: "Sonsuzluk havuzları", en: "Infinity pools" },
+      { ru: "Сервис 5-звездочного отеля", kk: "5 жұлдызды қонақүй сервисі", tr: "5 yıldızlı otel hizmetleri", en: "5-star hotel service" },
+      { ru: "Приватная охраняемая территория", kk: "Жеке күзетілетін аумақ", tr: "Özel korunaklı alan", en: "Private secured territory" },
+      { ru: "Уникальная архитектура", kk: "Бірегей сәулет", tr: "Benzersiz mimari", en: "Unique architecture" }
+    ]
+  },
+
+  "06-rams-city-halic-2": {
+    title: { ru: "RAMS CITY", kk: "RAMS CITY", tr: "RAMS CITY", en: "RAMS CITY" },
+    subtitle: { ru: "HALIC 2", kk: "HALIC 2", tr: "HALİÇ 2", en: "HALIC 2" },
+    description: {
+      ru: "Вторая фаза современного жилого комплекса на берегу залива Золотой Рог (Халич) в Стамбуле. Уникальная архитектура, захватывающие виды на море, развитая инфраструктура для активной жизни и отдыха.",
+      kk: "Стамбулдың Алтын мүйіз (Халич) шығанағы жағалауындағы заманауи тұрғын үй кешенінің екінші кезеңі. Бірегей сәулет, теңізге керемет көріністер, белсенді өмір мен демалыс үшін дамыған инфрақұрылым.",
+      tr: "Haliç sahilinde yükselen RAMS City Haliç 2, modern mimarisi, eşsiz deniz manzarası ve geniş sosyal alanları ile tarihi yarımadanın yanı başında konforlu bir yaşam sunuyor.",
+      en: "The second phase of the premium residential development on the Golden Horn (Haliç) coast in Istanbul. Offering modern architecture, panoramic sea views, and comprehensive lifestyle amenities."
+    },
+    status: { ru: "Строится", kk: "Салынуда", tr: "İnşaat Halinde", en: "Under Construction" },
+    features: [
+      { ru: "Панорамный вид на Золотой Рог (Халич)", kk: "Алтын мүйізге (Халич) панорамалық көрініс", tr: "Haliç panoramik manzarası", en: "Panoramic view of the Golden Horn (Halic)" },
+      { ru: "Близость к историческому центру", kk: "Тарихи орталыққа жақындық", tr: "Tarihi merkeze yakın konum", en: "Proximity to the historical center" },
+      { ru: "Развитая инфраструктура", kk: "Дамыған инфрақұрылым", tr: "Gelişmiş altyapı", en: "Developed infrastructure" },
+      { ru: "Современная архитектура", kk: "Заманауи сәулет", tr: "Modern mimari", en: "Modern architecture" },
+      { ru: "Зеленые зоны отдыха во дворе", kk: "Ауладағы жасыл демалыс аймақтары", tr: "Avluda yeşil dinlenme alanları", en: "Green recreation areas in the courtyard" },
+      { ru: "Круглосуточный консьерж-сервис", kk: "Тәулік бойғы консьерж-қызметі", tr: "7/24 konsiyerj hizmeti", en: "24/7 concierge service" },
+      { ru: "Фитнес и СПА центры", kk: "Фитнес және СПА орталықтары", tr: "Fitness ve SPA merkezleri", en: "Fitness and SPA centers" }
+    ]
+  },
+
+  "07-park-house-maslak": {
+    title: { ru: "PARK HOUSE", kk: "PARK HOUSE", tr: "PARK HOUSE", en: "PARK HOUSE" },
+    subtitle: { ru: "MASLAK", kk: "MASLAK", tr: "MASLAK", en: "MASLAK" },
+    description: {
+      ru: "Эксклюзивный жилой комплекс в Маслаке, одном из главных деловых центров Стамбула. Сочетание роскоши мегаполиса, близости к Белградскому лесу и передовых стандартов комфорта.",
+      kk: "Стамбулдың басты іскерлік орталықтарының бірі Маслактағы эксклюзивті тұрғын үй кешені. Мегаполис сәнділігі点の, Белград орманына жақындығының және жайлылықтың озық стандарттарының үйлесімі.",
+      tr: "İstanbul'un finans ve iş merkezi Maslak'ta yer alan Park House Maslak, Belgrad Ormanı'nın yanı başında, doğa ile lüks şehir yaşamını bir araya getiren ayrıcalıklı konutlar sunuyor.",
+      en: "An exclusive residential complex located in Maslak, one of Istanbul's premier business districts. Combining urban luxury, proximity to the Belgrade Forest, and ultimate comfort standards."
+    },
+    status: { ru: "Строится", kk: "Салынуда", tr: "İnşaat Halinde", en: "Under Construction" },
+    features: [
+      { ru: "Престижное расположение в деловом центре", kk: "Іскерлік орталықтағы беделді орналасу", tr: "Finans merkezinde prestijli konum", en: "Prestigious location in the business district" },
+      { ru: "Рядом с Белградским лесом", kk: "Белград орманына жақын", tr: "Belgrad Ormanı'nın yanı başında", en: "Right next to the Belgrade Forest" },
+      { ru: "Высокотехнологичные инженерные системы", kk: "Жоғары технологиялық инженерлік жүйелер", tr: "Yüksek teknolojik altyapı", en: "High-tech engineering systems" },
+      { ru: "Собственная прогулочная аллея", kk: "Жеке серуендеу аллеясы", tr: "Özel yürüyüş parkuru", en: "Private walking path" },
+      { ru: "Панорамное остекление", kk: "Панорамалық әйнектеу", tr: "Panoramik camlar", en: "Panoramic glazing" },
+      { ru: "Удобные выезды на автомагистрали", kk: "Автомагистральдарға ыңғайлы шығу жолдары", tr: "Ana yollara kolay çıkış", en: "Convenient highway access" }
+    ]
+  },
+
+  "08-sakura": {
+    title: { ru: "SAKURA", kk: "SAKURA", tr: "SAKURA", en: "SAKURA" },
+    subtitle: { ru: "Японский минимализм у гор", kk: "Таулар жанындағы жапон минимализмі", tr: "Dağlarda Japon minimalizmi", en: "Japanese minimalism at the mountains" },
+    description: {
+      ru: "Современный жилой комплекс «Sakura» находится около ущелья Ремизовка. Жилой комплекс с лаконичной архитектурой, в котором соединяется японская четкость и сдержанность. Минималистичный стиль архитектуры жилых домов отлично сочетается с живописным ландшафтом.",
+      kk: "Заманауи «Sakura» тұрғын үй кешені Ремизов шатқалының жанында орналасқан. Жапондық нақтылық пен ұстамдылықты біріктіретін қарапайым сәулеті бар тұрғын үй кешені. Тұрғын үйлердің минималистік сәулет стилі көрікті ландшафтпен тамаша үйлеседі.",
+      tr: "Modern «Sakura» konut kompleksi Remizovka vadisinin yakınında yer almaktadır. Japon netliği ve ölçülülüğünü birleştiren yalın mimariye sahip konut kompleksi. Konut binalarının minimalist mimari tarzı, pitoresk peyzajla mükemmel bir şekilde uyum sağlamaktadır.",
+      en: "The modern «Sakura» residential complex is located near the Remizovka gorge. A residential complex with laconic architecture combining Japanese precision and restraint. The minimalist architectural style of residential buildings perfectly matches the picturesque landscape."
+    },
+    status: { ru: "Сдан", kk: "Тапсырылды", tr: "Tamamlandı", en: "Completed" },
+    features: [
+      { ru: "Живописная закрытая территория площадью 7 гектаров", kk: "7 гектар көрікті жабық аумақ", tr: "7 hektarlık pitoresk kapalı alan", en: "Picturesque closed territory of 7 hectares" },
+      { ru: "Два собственных бассейна", kk: "Екі жеке бассейн", tr: "İki özel havuz", en: "Two private pools" },
+      { ru: "Зона для пикников и барбекю", kk: "Пикник және барбекю аймағы", tr: "Piknik ve barbekü alanı", en: "Picnic and barbecue area" },
+      { ru: "Крытый паркинг с местом для каждого жильца", kk: "Әрбір тұрғынға орын бар жабық паркинг", tr: "Her sakine yer ayrılmış kapalı otopark", en: "Covered parking with a space for each resident" },
+      { ru: "Высота потолков 3,3 метра", kk: "Төбе биіктігі 3,3 метр", tr: "Tavan yüksekliği 3,3 metre", en: "Ceiling height 3.3 meters" },
+      { ru: "Сейсмоустойчивость до 10 баллов", kk: "10 балға дейін сейсмикалық төзімділік", tr: "10 puana kadar deprem dayanıklılığı", en: "Seismic resistance up to 10 points" },
+      { ru: "13 жилых домов с панорамным остеклением", kk: "Панорамалық әйнектеуі бар 13 тұрғын үй", tr: "Panoramik camlı 13 konut binası", en: "13 residential buildings with panoramic glazing" },
+      { ru: "Атмосфера элитного соседства", kk: "Элиталық көршілік атмосферасы", tr: "Elit komşuluk atmosferi", en: "Elite neighborhood atmosphere" },
+      { ru: "Чистый горный воздух", kk: "Таза тау ауасы", tr: "Temiz dağ havası", en: "Clean mountain air" }
+    ]
+  },
+
+  "09-rams-city-halic-1": {
+    title: { ru: "RAMS CITY", kk: "RAMS CITY", tr: "RAMS CITY", en: "RAMS CITY" },
+    subtitle: { ru: "HALIC 1", kk: "HALIC 1", tr: "HALİÇ 1", en: "HALIC 1" },
+    description: {
+      ru: "Первая очередь престижного проекта RAMS City на побережье Золотого Рога в Стамбуле. Современные квартиры бизнес-класса с панорамным остеклением в окружении исторических достопримечательностей.",
+      kk: "Стамбулдағы Алтын мүйіз жағалауындағы беделді RAMS City жобасының бірінші кезеңі. Тарихи көрікті жерлермен қоршалған, панорамалық әйнегі бар заманауи бизнес-класстағы пәтерлер.",
+      tr: "Tarihi Haliç bölgesinde hayata geçirilen RAMS City Haliç 1, konforlu daireleri, panoramik pencereleri ve zengin sosyal donatıları ile İstanbul'un kalbinde elit bir yaşam alanı sunuyor.",
+      en: "The first phase of the prestigious RAMS City development on the Golden Horn shore in Istanbul. Business-class apartments with panoramic glazing, surrounded by historical landmarks."
+    },
+    status: { ru: "Строится", kk: "Салынуда", tr: "İnşaat Halinde", en: "Under Construction" },
+    features: [
+      { ru: "Первая очередь элитного комплекса на побережье", kk: "Жағалаудағы элиталық кешеннің бірінші кезеңі", tr: "Sahildeki lüks kompleksin ilk etabı", en: "First phase of the elite seaside development" },
+      { ru: "Панорамное остекление с шикарными видами", kk: "Шикарлы көрінісі бар панорамалық әйнектеу", tr: "Harika manzaralı panoramik camlar", en: "Panoramic glazing with gorgeous views" },
+      { ru: "Современная система безопасности", kk: "Заманауи қауіпсіздік жүйесі", tr: "Modern güvenlik sistemi", en: "Modern security system" },
+      { ru: "All-in-One концепция благоустройства", kk: "All-in-One абаттандыру концепциясы", tr: "All-in-One peyzaj konsepti", en: "All-in-One landscaping concept" },
+      { ru: "Близость к метро и транспортным узлам", kk: "Метро мен көлік тораптарына жақындық", tr: "Metro ve ulaşım akslarına yakınlık", en: "Proximity to metro and transport links" },
+      { ru: "Внутренний ландшафтный сад", kk: "Ішкі ландшафтық бақ", tr: "Site içi peyzaj bahçesi", en: "Inner landscaped garden" }
+    ]
+  },
+
+  "10-rams-city-gaziantep": {
+    title: { ru: "RAMS CITY", kk: "RAMS CITY", tr: "RAMS CITY", en: "RAMS CITY" },
+    subtitle: { ru: "GAZIANTEP", kk: "GAZIANTEP", tr: "GAZİANTEP", en: "GAZIANTEP" },
+    description: {
+      ru: "Масштабный современный жилой комплекс в Газиантепе. Премиальное качество строительства, просторные планировки квартир для больших семей и активные торговые галереи на территории.",
+      kk: "Газиантептегі ауқымды заманауи тұрғын үй кешені. Құрылыстың премиум сапасы, көп балалы отбасыларға арналған кең пәтер жоспарлары және аумақтағы белсенді сауда галереялары.",
+      tr: "Gaziantep'te yükselen RAMS City Gaziantep, geniş ailelere özel ferah daire planları, modern mimarisi ve site içi alışveriş caddesi ile bölgenin en prestijli yaşam projesidir.",
+      en: "A large-scale modern residential project in Gaziantep. Offering premium construction quality, spacious apartment layouts for large families, and active shopping galleries on site."
+    },
+    status: { ru: "Строится", kk: "Салынуда", tr: "İnşaat Halinde", en: "Under Construction" },
+    features: [
+      { ru: "Премиальное качество сборки", kk: "Құрылыстың жоғары сапасы", tr: "Premium inşaat kalitesi", en: "Premium construction quality" },
+      { ru: "Просторные семейные квартиры", kk: "Кең отбасылық пәтерлер", tr: "Ferah aile daireleri", en: "Spacious family apartments" },
+      { ru: "Собственный торговый променад", kk: "Жеке сауда променады", tr: "Site içi alışveriş caddesi", en: "Private shopping promenade" },
+      { ru: "Детские развивающие центры", kk: "Балалар дамыту орталықтары", tr: "Çocuk oyun ve aktivite alanları", en: "Children's development centers" },
+      { ru: "Энергоэффективные строительные материалы", kk: "Энергия тиімді құрылыс материалдары", tr: "Enerji tasarruflu malzemeler", en: "Energy-efficient building materials" },
+      { ru: "Закрытый двор без машин", kk: "Машинасыз жабық аула", tr: "Araçsız kapalı avlu", en: "Closed courtyard without cars" }
+    ]
+  },
+
+  "11-baiterek-school": {
+    title: { ru: "BAITEREK", kk: "БӘЙТЕРЕК", tr: "BAITEREK", en: "BAITEREK" },
+    subtitle: { ru: "SCHOOL", kk: "МЕКТЕБІ", tr: "OKULU", en: "SCHOOL" },
+    description: {
+      ru: "Современная инновационная школа Baiterek в Алматы, построенная RAMS Global. Передовое техническое оснащение, просторные классы, спортивные комплексы и лаборатории для всестороннего развития детей.",
+      kk: "Алматыдағы RAMS Global салған заманауи инновациялық Baiterek мектебі. Балалардың жан-жақты дамуы үшін озық техникалық жарақтандыру, кең сыныптар, спорт кешендері мен зертханалар.",
+      tr: "RAMS Global tarafından Almatı'da inşa edilen modern ve yenilikçi Baiterek Okulu, üst düzey teknolojik altyapısı, spor salonları ve laboratuvarları ile geleceğin eğitim standartlarını sunmaktadır.",
+      en: "An innovative, state-of-the-art educational facility in Almaty built by RAMS Global. Featuring top-tier sports facilities, spacious classrooms, and modern labs for comprehensive children's development."
+    },
+    status: { ru: "Сдан", kk: "Тапсырылды", tr: "Tamamlandı", en: "Completed" },
+    features: [
+      { ru: "Передовое техническое оснащение классов", kk: "Сыныптардың озық техникалық жарақталуы", tr: "Sınıfların modern teknolojik donanımı", en: "Advanced class technology" },
+      { ru: "Спортивные залы и бассейн", kk: "Спорт залдары мен бассейн", tr: "Spor salonları ve havuz", en: "Sports facilities and pool" },
+      { ru: "Современные научные лаборатории", kk: "Заманауи ғылыми зертханалар", tr: "Modern bilim laboratuvarları", en: "Modern science labs" },
+      { ru: "Просторный актовый зал", kk: "Кең мәжіліс залы", tr: "Geniş konferans salonu", en: "Spacious assembly hall" },
+      { ru: "Безопасная охраняемая территория", kk: "Қауіпсіз күзетілетін аумақ", tr: "Güvenli korunan okul alanı", en: "Secured safe campus" },
+      { ru: "Комфортная столовая и зоны отдыха", kk: "Жайлы асхана мен демалыс аймақтары", tr: "Konforlu yemekhane ve dinlenme alanları", en: "Comfortable cafeteria and lounges" }
+    ]
+  },
+
+  "12-hyatt-regency": {
+    title: { ru: "HYATT REGENCY", kk: "HYATT REGENCY", tr: "HYATT REGENCY", en: "HYATT REGENCY" },
+    subtitle: { ru: "Отель и Резиденции", kk: "Қонақүй және Резиденциялар", tr: "Otel ve Rezidanslar", en: "Hotel & Residences" },
+    description: {
+      ru: "Роскошный пятизвездочный отель и премиальные резиденции в Алматы. Сочетание легендарного гостеприимства бренда Hyatt, изысканной архитектуры, первоклассных конференц-залов и панорамных видов на горы.",
+      kk: "Алматыдағы сәнді бес жұлдызды қонақүй және премиум резиденциялар. Hyatt брендінің аңызға айналған қонақжайлылығының, талғампаз сәулетінің, бірінші дәрежелі конференция залдарының және тауларға панорамалық көріністерінің үйлесімі.",
+      tr: "Almatı'da konumlanan lüks beş yıldızlı Hyatt Regency oteli ve rezidansları, dünya standartlarında otel hizmetleri, seçkin mimarisi ve muhteşem dağ manzaraları ile premium bir yaşam tarzı sunmaktadır.",
+      en: "A world-class five-star hotel and premium residences project in Almaty. Combining the legendary Hyatt hospitality, exquisite architecture, top-tier business venues, and panoramic mountain views."
+    },
+    status: { ru: "Строится", kk: "Салынуда", tr: "İnşaat Halinde", en: "Under Construction" },
+    features: [
+      { ru: "Обслуживание под всемирным брендом Hyatt 5*", kk: "Әлемдік Hyatt 5* брендімен қызмет көрсету", tr: "Dünyaca ünlü Hyatt 5* markasıyla işletim", en: "Service under world-renowned Hyatt 5* brand" },
+      { ru: "Премиальные жилые резиденции", kk: "Премиум тұрғын үй резиденциялары", tr: "Lüks konut rezidansları", en: "Premium residential residences" },
+      { ru: "Панорамный вид на Заилийский Алатау", kk: "Іле Алатауына панорамалық көрініс", tr: "Zailiysky Alatau dağ manzarası", en: "Panoramic views of the mountains" },
+      { ru: "Конференц-залы мирового уровня", kk: "Әлемдік деңгейдегі конференц-залдар", tr: "Dünya standartlarında konferans salonları", en: "World-class conference rooms" },
+      { ru: "СПА, фитнес-центр и закрытый бассейн", kk: "СПА, фитнес-орталық және жабық бассейн", tr: "SPA, fitness salonu ve kapalı havuz", en: "SPA, fitness center and indoor pool" },
+      { ru: "Эксклюзивный ресторан высокой кухни", kk: "Жоғары асхананың эксклюзивті мейрамханасы", tr: "Özel seçkin gurme restoranı", en: "Exclusive fine-dining restaurant" }
+    ]
+  },
+
+  "13-rams-city-almaty": {
+    title: { ru: "RAMS CITY", kk: "RAMS CITY", tr: "RAMS CITY", en: "RAMS CITY" },
+    subtitle: { ru: "ALMATY", kk: "ALMATY", tr: "ALMATI", en: "ALMATY" },
+    description: {
+      ru: "Rams City – современный жилой комплекс в европейском стиле. Проживать здесь будет комфортно всем, но в первую очередь семьям с детьми: именно под таких жильцов «заточена» вся внутренняя инфраструктура ЖК. Особое преимущество квартир в комплексе – из окон открывается шикарный панорамный вид.\n\nВ жилом комплексе RAMS CITY мы подготовили для вас множество коммерческих помещений, которые будут расположены вдоль нашей грандиозной аллеи. Ваш бизнес будет находиться в центре событий.",
+      kk: "Rams City – еуропалық стильдегі заманауи тұрғын үй кешені. Мұнда бәріне жайлы болады, бірақ ең алдымен балалы отбасыларға: ТҮК-нің барлық ішкі инфрақұрылымы осындай тұрғындарға арналған. Кешендегі пәтерлердің ерекше артықшылығы – терезелерден керемет панорамалық көрініс ашылады.\n\nRAMS CITY тұрғын үй кешенінде біз сіздер үшін біздің керемет аллея бойында орналасатын көптеген коммерциялық үй-жайлар дайындадық. Сіздің бизнесіңіз оқиғалардың орталығында болады.",
+      tr: "Rams City – Avrupa tarzında modern bir konut kompleksi. Burada herkes için rahat olacak, ancak öncelikle çocuklu aileler için: konut kompleksinin tüm iç altyapısı bu tür sakinler için tasarlanmıştır. Kompleksteki dairelerin özel avantajı – pencerelerden muhteşem panoramik manzara açılıyor.\n\nRAMS CITY konut kompleksinde, görkemli bulvarımız boyunca yer alacak birçok ticari alan hazırladık. İşletmeniz olayların merkezinde olacak.",
+      en: "Rams City – a modern residential complex in European style. Living here will be comfortable for everyone, but primarily for families with children: all internal infrastructure of the complex is designed for such residents. The special advantage of apartments in the complex – stunning panoramic views open from the windows.\n\nIn the RAMS CITY residential complex, we have prepared many commercial spaces for you, which will be located along our grand boulevard. Your business will be at the center of events."
+    },
+    status: { ru: "Сдана 1 очередь", kk: "1-кезең тапсырылды", tr: "1. Etap Tamamlandı", en: "Phase 1 Completed" },
+    features: [
+      { ru: "Отличная локация в сердце города, у реки Большая Алматинка", kk: "Үлкен Алматы өзенінің жанында, қала жүрегіндегі тамаша орналасу", tr: "Büyük Almatinka nehri yakınında, şehrin kalbinde mükemmel konum", en: "Excellent location in the heart of the city, near the Bolshaya Almatinka river" },
+      { ru: "Школа во дворе", kk: "Ауладағы мектеп", tr: "Avluda okul", en: "School in the courtyard" },
+      { ru: "Близость к самым большим ТРЦ Алматы – ADK и Mega", kk: "Алматының ең үлкен СОО-на жақындық – ADK және Mega", tr: "Almatı'nın en büyük AVM'lerine yakınlık – ADK ve Mega", en: "Proximity to the largest shopping malls in Almaty – ADK and Mega" },
+      { ru: "В пяти минутах Парк Первого Президента", kk: "Бес минутта Бірінші Президент паркі", tr: "Beş dakikada Birinci Cumhurbaşkanı Parkı", en: "Five minutes to the First President Park" },
+      { ru: "Зеленый RAMS бульвар протяженностью более километра с развитой сетью стрит-ритейл", kk: "Дамыған стрит-ритейл желісі бар бір километрден астам RAMS жасыл бульвары", tr: "Gelişmiş sokak perakende ağı ile bir kilometreden uzun yeşil RAMS bulvarı", en: "Green RAMS boulevard over one kilometer long with developed street-retail network" },
+      { ru: "Современные детские и workout – площадки и места для отдыха всех домочадцев", kk: "Барлық үй тұрғындары үшін заманауи балалар және воркаут алаңдары мен демалыс орындары", tr: "Tüm ev halkı için modern çocuk ve spor alanları ve dinlenme yerleri", en: "Modern children's and workout areas and recreation places for all household members" },
+      { ru: "Комнаты развлечений для взрослых и детей", kk: "Ересектер мен балаларға арналған ойын-сауық бөлмелері", tr: "Yetişkinler ve çocuklar için eğlence odaları", en: "Entertainment rooms for adults and children" },
+      { ru: "Фонтан, как место встреч", kk: "Кездесу орны ретіндегі фонтан", tr: "Buluşma yeri olarak çeşme", en: "Fountain as a meeting place" }
+    ]
+  },
 };
+
 
 // Helper function to get localized project data
 export function getLocalizedProject(projectId: string, language: Language) {
