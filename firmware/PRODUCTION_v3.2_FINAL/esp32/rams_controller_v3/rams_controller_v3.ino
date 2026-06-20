@@ -1123,6 +1123,24 @@ void setup() {
   ArduinoOTA.begin();
   Serial.println("[OTA] Ready");
 
+  // Инициализируем стартовый эффект и цвет для авторежима сразу при загрузке
+  if (autoMode) {
+    CRGB startColor = AUTO_COLORS[autoColorIndex];
+    gR = startColor.r;
+    gG = startColor.g;
+    gB = startColor.b;
+    targetR = startColor.r;
+    targetG = startColor.g;
+    targetB = startColor.b;
+    gFx = AUTO_EFFECTS[autoEffectIndex];
+    
+    Serial.printf("[BOOT] Started in AutoMode: Effect %d, Color RGB(%d,%d,%d)\n", gFx, gR, gG, gB);
+    
+    autoColorIndex = (autoColorIndex + 1) % AUTO_COLORS_COUNT;
+    autoEffectIndex = (autoEffectIndex + 1) % AUTO_EFFECTS_COUNT;
+    lastAutoChange = millis();
+  }
+
   Serial.println("[READY] System initialized!\n");
 }
 
