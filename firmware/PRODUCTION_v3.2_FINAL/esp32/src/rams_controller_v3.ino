@@ -89,7 +89,8 @@ NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt6Ws2812xMethod> strip7(146, 27);
 NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt7Ws2812xMethod> strip8(159, 18);
 
 // Глобальные LED параметры
-uint8_t gR = 0, gG = 150, gB = 255;  // Cyan
+uint8_t gR = 0, gG = 150, gB = 255;  // Текущий промежуточный цвет
+uint8_t targetR = 0, targetG = 150, targetB = 255; // Целевой цвет для плавного перехода
 uint8_t gBri = 200;
 uint8_t gFx = 0;    // Текущий эффект: 0=Static, 1=Pulse, 2=Rainbow, 3=Chase, 4=Sparkle, 5=Wave, 6=Fire, 7=Meteor
 uint8_t gSpd = 128; // Скорость эффекта (0-255)
@@ -269,7 +270,7 @@ unsigned long lastHeartbeat = 0;
 // ===== АВТОМАТИЧЕСКИЙ РЕЖИМ (STARTUP AUTOPLAY) =====
 bool autoMode = true; // Запускается автоматически при старте
 unsigned long lastAutoChange = 0;
-const unsigned long AUTO_CHANGE_INTERVAL = 15000; // Смена каждые 15 секунд
+const unsigned long AUTO_CHANGE_INTERVAL = 60000; // Смена каждые 60 секунд (1 минута)
 
 const int AUTO_COLORS_COUNT = 5;
 const CRGB AUTO_COLORS[AUTO_COLORS_COUNT] = {
@@ -735,9 +736,9 @@ void setup() {
     if (b > 255) b = 255;
 
     // Обновить глобальные переменные
-    gR = r;
-    gG = g;
-    gB = b;
+    targetR = r;
+    targetG = g;
+    targetB = b;
     testMode = false;  // Выходим из тест-режима
     autoMode = false;  // Отключаем авторежим при ручном выборе цвета
 
@@ -1700,6 +1701,8 @@ void loop() {
   ArduinoOTA.handle();
   server.handleClient();
 
+  static bool pendingShow = false;
+
   // ===== АВТОМАТИЧЕСКАЯ СМЕНА ЭФФЕКТОВ И ЦВЕТОВ =====
   if (autoMode) {
     unsigned long currentMillis = millis();
@@ -1708,18 +1711,44 @@ void loop() {
       
       // Переключаем цвет
       CRGB nextColor = AUTO_COLORS[autoColorIndex];
-      gR = nextColor.r;
-      gG = nextColor.g;
-      gB = nextColor.b;
+      targetR = nextColor.r;
+      targetG = nextColor.g;
+      targetB = nextColor.b;
       
       // Переключаем эффект
       gFx = AUTO_EFFECTS[autoEffectIndex];
       
-      Serial.printf("[AUTO] Switched to effect %d, color RGB(%d,%d,%d)\n", gFx, gR, gG, gB);
+      Serial.printf("[AUTO] Switched to effect %d, target color RGB(%d,%d,%d)\n", gFx, targetR, targetG, targetB);
       
       // Переходим к следующим индексам
       autoColorIndex = (autoColorIndex + 1) % AUTO_COLORS_COUNT;
       autoEffectIndex = (autoEffectIndex + 1) % AUTO_EFFECTS_COUNT;
+    }
+  }
+
+  // ===== ПЛАВНЫЙ ФЕЙД ЦВЕТОВ (SMOOTH COLOR TRANSITION) =====
+  static unsigned long lastColorStep = 0;
+  if (millis() - lastColorStep >= 10) { // шаг каждые 10 мс
+    lastColorStep = millis();
+    bool colorChanged = false;
+    
+    if (gR < targetR) { gR++; colorChanged = true; }
+    else if (gR > targetR) { gR--; colorChanged = true; }
+    
+    if (gG < targetG) { gG++; colorChanged = true; }
+    else if (gG > targetG) { gG--; colorChanged = true; }
+    
+    if (gB < targetB) { gB++; colorChanged = true; }
+    else if (gB > targetB) { gB--; colorChanged = true; }
+    
+    if (colorChanged && gFx == 0) {
+      // Если мы в режиме статики (gFx == 0), перерисовываем активные блоки новым промежуточным цветом
+      for (int i = 1; i <= TOTAL_BLOCKS; i++) {
+        if (ledStates[i] && !fadeStates[i].isActive) {
+          updateBlockLEDs(i, CRGB(gR, gG, gB));
+        }
+      }
+      pendingShow = true;
     }
   }
 
@@ -1859,7 +1888,7 @@ void loop() {
   }
 
   // ===== ПЛАВНОЕ НАРАСТАНИЕ (UP) И УГАСАНИЕ (DOWN) LED =====
-  static bool pendingShow = false;
+  // pendingShow уже объявлена в начале loop()
 
   for (int i = 1; i <= TOTAL_BLOCKS; i++) {
     if (!fadeStates[i].isActive) continue;

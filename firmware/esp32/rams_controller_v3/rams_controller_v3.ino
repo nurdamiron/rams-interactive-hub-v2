@@ -89,7 +89,8 @@ NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt6Ws2812xMethod> strip7(146, 27);
 NeoPixelBus<NeoRgbFeature, NeoEsp32Rmt7Ws2812xMethod> strip8(159, 18);
 
 // Глобальные LED параметры
-uint8_t gR = 0, gG = 150, gB = 255;  // Cyan
+uint8_t gR = 0, gG = 150, gB = 255;  // Текущий промежуточный цвет
+uint8_t targetR = 0, targetG = 150, targetB = 255; // Целевой цвет для плавного перехода
 uint8_t gBri = 200;
 uint8_t gFx = 0;    // Текущий эффект: 0=Static, 1=Pulse, 2=Rainbow, 3=Chase, 4=Sparkle, 5=Wave, 6=Fire, 7=Meteor
 uint8_t gSpd = 128; // Скорость эффекта (0-255)
@@ -97,7 +98,7 @@ uint8_t gSpd = 128; // Скорость эффекта (0-255)
 #define FPS 50  // Частота обновления эффектов
 
 void showLEDs() {
-  // Копируем данные Луча 6 (110 LED) и Короткой линии (48 LED) в общий буфер
+  // Копируем данные Луча 6 (110 LED) и Короткой линии (49 LED) в общий буфер
   memcpy(ray6AndShortCombined, leds[8], 110 * sizeof(CRGB));
   memcpy(ray6AndShortCombined + 110, leds[6], 49 * sizeof(CRGB));
 
@@ -168,7 +169,7 @@ void showLEDs() {
     ));
   }
 
-  // Strip 8: Combined Ray 6 + Short (158 LED, GPIO 18, RMT 7)
+  // Strip 8: Combined Ray 6 + Short (159 LED, GPIO 18, RMT 7)
   for (uint16_t i = 0; i < 159; i++) {
     strip8.SetPixelColor(i, RgbColor(
       (uint16_t)ray6AndShortCombined[i].r * gBri / 255,
@@ -265,6 +266,35 @@ FadeState fadeStates[TOTAL_BLOCKS + 1];  // 0 не используется
 bool mega1Alive = false;
 bool mega2Alive = false;
 unsigned long lastHeartbeat = 0;
+
+// ===== АВТОМАТИЧЕСКИЙ РЕЖИМ (STARTUP AUTOPLAY) =====
+bool autoMode = true; // Запускается автоматически при старте
+unsigned long lastAutoChange = 0;
+const unsigned long AUTO_CHANGE_INTERVAL = 60000; // Смена каждые 60 секунд (1 минута)
+
+const int AUTO_COLORS_COUNT = 5;
+const CRGB AUTO_COLORS[AUTO_COLORS_COUNT] = {
+  CRGB(180, 0, 255),    // Фиолетовый
+  CRGB(255, 255, 255),  // Ақ (Белый)
+  CRGB(0, 150, 255),    // Көк (Голубой)
+  CRGB(128, 255, 128),  // Жасыл мятный (Бело-зеленый)
+  CRGB(255, 180, 40)    // Теплый белый (желтоватый без розового оттенка)
+};
+int autoColorIndex = 0;
+
+const int AUTO_EFFECTS_COUNT = 9;
+const uint8_t AUTO_EFFECTS[AUTO_EFFECTS_COUNT] = {
+  1,  // Pulse
+  3,  // Chase
+  4,  // Sparkle
+  5,  // Wave
+  7,  // Meteor
+  9,  // ColorWipe
+  10, // Twinkle
+  11, // Ripple
+  12  // Breathing
+};
+int autoEffectIndex = 0;
 
 // ============================================================================
 // WEB SERVER
@@ -509,6 +539,19 @@ void setup() {
     }
   });
 
+  server.on("/api/reboot", HTTP_ANY, []() {
+    server.sendHeader("Access-Control-Allow-Origin", "*");
+    server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+    if (server.method() == HTTP_OPTIONS) {
+      server.send(204);
+      return;
+    }
+    server.send(200, "text/plain", "Rebooting ESP32...");
+    delay(500);
+    ESP.restart();
+  });
+
   server.on("/api/status", HTTP_GET, []() {
     lastRequestTime = millis();
     // CORS заголовки
@@ -516,7 +559,10 @@ void setup() {
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
 
-    String json = "{\"active\":" + String(activeBlocksCount) + ",\"blocks\":[";
+    String json = "{\"active\":" + String(activeBlocksCount) + 
+                  ",\"mega1Alive\":" + String(mega1Alive ? "true" : "false") +
+                  ",\"mega2Alive\":" + String(mega2Alive ? "true" : "false") +
+                  ",\"blocks\":[";
     bool first = true;
     for (int i = 1; i <= TOTAL_BLOCKS; i++) {
       if (blockStates[i].isActive) {
@@ -690,10 +736,11 @@ void setup() {
     if (b > 255) b = 255;
 
     // Обновить глобальные переменные
-    gR = r;
-    gG = g;
-    gB = b;
+    targetR = r;
+    targetG = g;
+    targetB = b;
     testMode = false;  // Выходим из тест-режима
+    autoMode = false;  // Отключаем авторежим при ручном выборе цвета
 
     Serial.printf("[API] LED color set to RGB(%d, %d, %d)\n", r, g, b);
 
@@ -765,8 +812,8 @@ void setup() {
     }
 
     // Обновить эффект
-    gFx = id;
     testMode = false;  // Выходим из тест-режима
+    autoMode = false;  // Отключаем авторежим при ручном выборе эффекта
 
     // Очистить heat buffer при переключении на Fire
     if (id == 6) {
@@ -1095,13 +1142,13 @@ void updateBlockLEDs(int blockNum, CRGB color) {
   switch (blockNum) {
     case 1: // NOMAD
       setSegmentColor(8, 60, 109, color);
-      setSegmentColor(6, 0, 47, color);
+      setSegmentColor(6, 0, 48, color);
       if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
         setSegmentColor(0, 29, 102, color);
       }
       break;
     case 2: // GRANDE VIE
-      setSegmentColor(6, 0, 47, color);
+      setSegmentColor(6, 0, 48, color);
       setSegmentColor(2, 60, 109, color);
       if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
         setSegmentColor(0, 0, 28, color);
@@ -1199,6 +1246,86 @@ void updateBlockLEDs(int blockNum, CRGB color) {
 }
 
 /**
+ * Проверяет, принадлежит ли конкретный светодиод (stripIdx, pixelIdx) к LED зоне указанного блока.
+ */
+bool isPixelInBlock(int blockNum, uint8_t stripIdx, uint16_t pixelIdx) {
+  switch (blockNum) {
+    case 1: // NOMAD
+      if (stripIdx == 8 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (stripIdx == 6 && pixelIdx >= 0 && pixelIdx <= 48) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 29 && pixelIdx <= 102) return true;
+      break;
+    case 2: // GRANDE VIE
+      if (stripIdx == 6 && pixelIdx >= 0 && pixelIdx <= 48) return true;
+      if (stripIdx == 2 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && ( (pixelIdx >= 0 && pixelIdx <= 28) || (pixelIdx >= 496 && pixelIdx <= 530) )) return true;
+      break;
+    case 3: // RAMS CITY ALMATY
+      if (stripIdx == 8 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 2 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 7 && ( (pixelIdx >= 0 && pixelIdx <= 18) || (pixelIdx >= 128 && pixelIdx <= 145) )) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && ( (pixelIdx >= 0 && pixelIdx <= 102) || (pixelIdx >= 496 && pixelIdx <= 530) )) return true;
+      break;
+    case 4: // KERUEN CITY
+      if (stripIdx == 2 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (stripIdx == 5 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 430 && pixelIdx <= 495) return true;
+      break;
+    case 5: // HYATT REGENCY
+      if (stripIdx == 5 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 2 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 7 && pixelIdx >= 109 && pixelIdx <= 127) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 430 && pixelIdx <= 495) return true;
+      break;
+    case 6: // RAMS GARDEN BAHCELIEVLER
+      if (stripIdx == 5 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (stripIdx == 3 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 363 && pixelIdx <= 429) return true;
+      break;
+    case 7: // BAITEREK SCHOOL
+      if (stripIdx == 3 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 5 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 7 && pixelIdx >= 91 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 363 && pixelIdx <= 429) return true;
+      break;
+    case 8: // RAMS RESORT BODRUM
+      if (stripIdx == 3 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (stripIdx == 4 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 303 && pixelIdx <= 363) return true;
+      break;
+    case 9: // RAMS CITY GAZIANTEP
+      if (stripIdx == 3 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 4 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 7 && pixelIdx >= 74 && pixelIdx <= 91) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 303 && pixelIdx <= 363) return true;
+      break;
+    case 10: // RAMS CITY HALIC 2
+      if (stripIdx == 4 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (stripIdx == 1 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 225 && pixelIdx <= 303) return true;
+      break;
+    case 11: // RAMS CITY HALIC 1
+      if (stripIdx == 7 && pixelIdx >= 53 && pixelIdx <= 74) return true;
+      if (stripIdx == 1 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 4 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 225 && pixelIdx <= 303) return true;
+      break;
+    case 12: // PARK HOUSE MASLAK
+      if (stripIdx == 1 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (stripIdx == 8 && pixelIdx >= 60 && pixelIdx <= 109) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 103 && pixelIdx <= 225) return true;
+      break;
+    case 13: // SAKURA
+      if (stripIdx == 1 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 8 && pixelIdx >= 0 && pixelIdx <= 59) return true;
+      if (stripIdx == 7 && pixelIdx >= 19 && pixelIdx <= 52) return true;
+      if (ENABLE_BIG_CIRCLE_ON_BLOCKS && stripIdx == 0 && pixelIdx >= 103 && pixelIdx <= 225) return true;
+      break;
+  }
+  return false;
+}
+
+/**
  * Плавное нарастание LED зоны (UP) — 4 секунды от 0 до макс. яркости
  */
 void lightUpBlock(int blockNum) {
@@ -1277,50 +1404,16 @@ void fxPulse() {
     return;
   }
 
-  // Применить к активным блокам (проверяем LED состояние, не актуатор!)
+  // Очищаем все светодиоды перед выводом активных зон
+  for (int s = 0; s < NUM_STRIPS; s++) {
+    fill_solid(leds[s], PIN_LEDS[s], CRGB::Black);
+  }
+
+  // Применяем пульсацию только к светодиодам активных блоков (без fade-out)
   for (int i = 1; i <= TOTAL_BLOCKS; i++) {
-    if (!ledStates[i]) continue;  // ✅ Проверяем LED состояние
-    if (fadeStates[i].isActive) continue;  // ✅ Пропускаем блоки в fade!
-
-    int sector = (i - 1) / 2;
-    bool isOuter = (i % 2 == 1);
-    uint8_t L = RAY[sector];
-    uint8_t R = RAY[(sector + 1) % 8];
-
-    if (i == 15) {
-      for (int j = 0; j < 33; j++) {
-        leds[L][j] = c;
-        leds[R][j] = c;
-      }
-      for (int j = 0; j < INNER_COUNT[sector]; j++) {
-        leds[S_INNER][INNER_START[sector] + j] = c;
-      }
-    }
-    else if (isOuter) {
-      for (int j = RAY_OUT_START; j < RAY_OUT_START + RAY_OUT_COUNT; j++) {
-        leds[L][j] = c;
-        leds[R][j] = c;
-      }
-      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
-        for (int j = 0; j < OUTER_COUNT[sector]; j++) {
-          leds[S_OUTER][OUTER_START[sector] + j] = c;
-        }
-      }
-    }
-    else {
-      for (int j = RAY_IN_START; j < RAY_IN_START + RAY_IN_COUNT; j++) {
-        leds[L][j] = c;
-        leds[R][j] = c;
-      }
-      for (int j = 0; j < INNER_COUNT[sector]; j++) {
-        leds[S_INNER][INNER_START[sector] + j] = c;
-      }
-      if (ENABLE_BIG_CIRCLE_ON_BLOCKS) {
-        for (int j = 0; j < OUTER_COUNT[sector]; j++) {
-          leds[S_OUTER][OUTER_START[sector] + j] = c;
-        }
-      }
-    }
+    if (!ledStates[i]) continue;
+    if (fadeStates[i].isActive) continue; // Пропускаем те, что в fade
+    updateBlockLEDs(i, c);
   }
 }
 
@@ -1350,26 +1443,23 @@ void fxRainbow() {
     return; // Если нет активных блоков, радуга идет по всем лентам
   }
 
-  // Применить маску активных блоков (проверяем LED состояние!)
+  // Применить маску активных блоков
   for (int s = 0; s < NUM_STRIPS; s++) {
     if (s == S_OUTER && !ENABLE_BIG_CIRCLE_ON_EFFECTS) continue;
     for (uint16_t j = 0; j < PIN_LEDS[s]; j++) {
       bool inActiveBlock = false;
       for (int i = 1; i <= TOTAL_BLOCKS; i++) {
-        if (!ledStates[i]) continue;  // ✅ Проверяем LED состояние
-        if (fadeStates[i].isActive) continue;  // ✅ Пропускаем блоки в fade!
+        if (!ledStates[i]) continue;
+        if (fadeStates[i].isActive) continue; // Пропускаем те, что в fade
 
-        int sector = (i - 1) / 2;
-        bool isOuter = (i % 2 == 1);
-        uint8_t L = RAY[sector];
-        uint8_t R = RAY[(sector + 1) % 8];
-
-        if (s == L || s == R || s == S_INNER || (s == S_OUTER && ENABLE_BIG_CIRCLE_ON_BLOCKS)) {
+        if (isPixelInBlock(i, s, j)) {
           inActiveBlock = true;
           break;
         }
       }
-      if (!inActiveBlock) leds[s][j] = CRGB::Black;
+      if (!inActiveBlock) {
+        leds[s][j] = CRGB::Black;
+      }
     }
   }
 }
@@ -1611,6 +1701,57 @@ void loop() {
   ArduinoOTA.handle();
   server.handleClient();
 
+  static bool pendingShow = false;
+
+  // ===== АВТОМАТИЧЕСКАЯ СМЕНА ЭФФЕКТОВ И ЦВЕТОВ =====
+  if (autoMode) {
+    unsigned long currentMillis = millis();
+    if (currentMillis - lastAutoChange > AUTO_CHANGE_INTERVAL) {
+      lastAutoChange = currentMillis;
+      
+      // Переключаем цвет
+      CRGB nextColor = AUTO_COLORS[autoColorIndex];
+      targetR = nextColor.r;
+      targetG = nextColor.g;
+      targetB = nextColor.b;
+      
+      // Переключаем эффект
+      gFx = AUTO_EFFECTS[autoEffectIndex];
+      
+      Serial.printf("[AUTO] Switched to effect %d, target color RGB(%d,%d,%d)\n", gFx, targetR, targetG, targetB);
+      
+      // Переходим к следующим индексам
+      autoColorIndex = (autoColorIndex + 1) % AUTO_COLORS_COUNT;
+      autoEffectIndex = (autoEffectIndex + 1) % AUTO_EFFECTS_COUNT;
+    }
+  }
+
+  // ===== ПЛАВНЫЙ ФЕЙД ЦВЕТОВ (SMOOTH COLOR TRANSITION) =====
+  static unsigned long lastColorStep = 0;
+  if (millis() - lastColorStep >= 10) { // шаг каждые 10 мс
+    lastColorStep = millis();
+    bool colorChanged = false;
+    
+    if (gR < targetR) { gR++; colorChanged = true; }
+    else if (gR > targetR) { gR--; colorChanged = true; }
+    
+    if (gG < targetG) { gG++; colorChanged = true; }
+    else if (gG > targetG) { gG--; colorChanged = true; }
+    
+    if (gB < targetB) { gB++; colorChanged = true; }
+    else if (gB > targetB) { gB--; colorChanged = true; }
+    
+    if (colorChanged && gFx == 0) {
+      // Если мы в режиме статики (gFx == 0), перерисовываем активные блоки новым промежуточным цветом
+      for (int i = 1; i <= TOTAL_BLOCKS; i++) {
+        if (ledStates[i] && !fadeStates[i].isActive) {
+          updateBlockLEDs(i, CRGB(gR, gG, gB));
+        }
+      }
+      pendingShow = true;
+    }
+  }
+
   // ===== WiFi Reconnection and Auto-Restart Monitoring =====
   static unsigned long lastWifiCheck = 0;
   static unsigned long disconnectTime = 0;
@@ -1739,13 +1880,15 @@ void loop() {
 
   // ===== HEARTBEAT (PING каждые 2 сек) =====
   if (now - lastHeartbeat > HEARTBEAT_INTERVAL) {
+    mega1Alive = false;
+    mega2Alive = false;
     Mega1Serial.println(CMD_PING);
     Mega2Serial.println(CMD_PING);
     lastHeartbeat = now;
   }
 
   // ===== ПЛАВНОЕ НАРАСТАНИЕ (UP) И УГАСАНИЕ (DOWN) LED =====
-  static bool pendingShow = false;
+  // pendingShow уже объявлена в начале loop()
 
   for (int i = 1; i <= TOTAL_BLOCKS; i++) {
     if (!fadeStates[i].isActive) continue;
