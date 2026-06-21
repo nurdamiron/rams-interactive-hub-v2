@@ -282,9 +282,10 @@ const CRGB AUTO_COLORS[AUTO_COLORS_COUNT] = {
 };
 int autoColorIndex = 0;
 
-const int AUTO_EFFECTS_COUNT = 9;
+const int AUTO_EFFECTS_COUNT = 10;
 const uint8_t AUTO_EFFECTS[AUTO_EFFECTS_COUNT] = {
   1,  // Pulse
+  2,  // Rainbow
   3,  // Chase
   4,  // Sparkle
   5,  // Wave
