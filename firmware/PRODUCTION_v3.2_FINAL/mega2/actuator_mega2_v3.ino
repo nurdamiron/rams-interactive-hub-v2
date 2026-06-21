@@ -234,7 +234,11 @@ void loop() {
       if (parsed >= 3 && block >= MEGA2_BLOCK_START && block <= MEGA2_BLOCK_END) {
         const BlockConfig* cfg = getBlockConfig(block);
         int idx = block - MEGA2_BLOCK_START + 1;
-        if (dur == 0) dur = DEFAULT_DURATION_MS;
+        if (dur == 0) {
+          if (strcmp(actAction, ACTION_UP) == 0) dur = 4000;
+          else if (strcmp(actAction, ACTION_DOWN) == 0) dur = 5000;
+          else dur = DEFAULT_DURATION_MS;
+        }
 
         // Определяем H-Bridge
         ActuatorPins* pins = nullptr;
@@ -308,7 +312,11 @@ void loop() {
         const BlockConfig* cfg = getBlockConfig(blockNum);
         int idx = blockNum - MEGA2_BLOCK_START + 1;
 
-        if (duration == 0) duration = DEFAULT_DURATION_MS;
+        if (duration == 0) {
+          if (strcmp(action, ACTION_UP) == 0) duration = 4000;
+          else if (strcmp(action, ACTION_DOWN) == 0) duration = 5000;
+          else duration = DEFAULT_DURATION_MS;
+        }
 
         // UP
         if (strcmp(action, ACTION_UP) == 0) {

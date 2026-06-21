@@ -78,7 +78,9 @@ process.on('unhandledRejection', (reason) => {
 const ESP32_PORT = 80;
 const COMMAND_DEBOUNCE_MS = 150;
 const HEALTH_CHECK_INTERVAL = 10000;
-const BLOCK_DURATION_MS = 4000;  // 4 секунды для UP (синхронно с React)
+const BLOCK_UP_DURATION_MS = 4000;    // 4 секунды для UP (синхронно с React)
+const BLOCK_DOWN_DURATION_MS = 5000;  // 5 секунд для DOWN
+
 
 const hardwareConfigPath = path.join(app.getPath('userData'), 'hardware-config.json');
 
@@ -333,11 +335,12 @@ function sendDebouncedBlockCommand(block, action) {
       debounceTimer = null;
       pendingResolve = null;
 
-      // Отправляем HTTP запрос с длительностью 10 секунд
+      // Отправляем HTTP запрос
+      const duration = action.toUpperCase() === 'UP' ? BLOCK_UP_DURATION_MS : BLOCK_DOWN_DURATION_MS;
       const success = await sendHttpRequest('/api/block', {
         num: block,
         action: action.toLowerCase(),
-        duration: BLOCK_DURATION_MS
+        duration: duration
       });
 
       if (success) {
@@ -1338,7 +1341,9 @@ app.whenReady().then(() => {
     }
     if (cmd.startsWith('BLOCK:')) {
       const parts = cmd.split(':');
-      return sendHttpRequest('/api/block', { num: parts[1], action: parts[2].toLowerCase(), duration: BLOCK_DURATION_MS });
+      const blockAction = parts[2].toUpperCase();
+      const duration = blockAction === 'UP' ? BLOCK_UP_DURATION_MS : BLOCK_DOWN_DURATION_MS;
+      return sendHttpRequest('/api/block', { num: parts[1], action: parts[2].toLowerCase(), duration });
     }
     log(`[HTTP] Unknown command: ${cmd}`);
     return false;

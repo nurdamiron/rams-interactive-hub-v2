@@ -799,9 +799,9 @@
     <div class="field">
       <label>Длительность движения по умолчанию</label>
       <div class="addr-inputs">
-        <input type="number" id="actuator-duration" value="4000" min="500" max="4000" style="width:100%;padding:10px;font-family:'JetBrains Mono';background:black;border:1px solid var(--border);border-radius:8px">
+        <input type="number" id="actuator-duration" placeholder="По умолчанию (4с вверх / 5с вниз)" min="500" max="15000" style="width:100%;padding:10px;font-family:'JetBrains Mono';background:black;border:1px solid var(--border);border-radius:8px">
       </div>
-      <span style="font-size:0.75rem;color:var(--text-muted);display:block;margin-top:6px">Время в мс. Максимум 4000мс (4 сек). Актуатор остановится автоматически.</span>
+      <span style="font-size:0.75rem;color:var(--text-muted);display:block;margin-top:6px">Время в мс. Максимум 15000мс. UP по умолчанию = 4с, DOWN по умолчанию = 5с.</span>
     </div>
 
     <div class="divider"></div>
@@ -1326,8 +1326,12 @@ async function controlActuator(blockNum, action) {
     actLog('Ошибка: нет связи с ESP32!', 'err');
     return;
   }
-  let duration = Math.min(parseInt(document.getElementById('actuator-duration').value) || 4000, 4000);
-  document.getElementById('actuator-duration').value = duration;
+  let durationInput = parseInt(document.getElementById('actuator-duration').value);
+  let duration = durationInput;
+  if (!duration || isNaN(duration)) {
+    duration = (action === 'DOWN') ? 5000 : 4000;
+  }
+  duration = Math.min(duration, 15000);
   
   const block = BLOCK_NAMES[blockNum];
   actLog(`Блок ${blockNum} (${block.name}) → ${action} ВСЕ актуаторы на ${duration}мс [Mega #${block.mega}]`, 'info');
@@ -1359,7 +1363,12 @@ async function controlIndividualActuator(blockNum, actNum, action) {
     actLog('Ошибка: нет связи с ESP32!', 'err');
     return;
   }
-  let duration = Math.min(parseInt(document.getElementById('actuator-duration').value) || 4000, 4000);
+  let durationInput = parseInt(document.getElementById('actuator-duration').value);
+  let duration = durationInput;
+  if (!duration || isNaN(duration)) {
+    duration = (action === 'DOWN') ? 5000 : 4000;
+  }
+  duration = Math.min(duration, 15000);
   
   const block = BLOCK_NAMES[blockNum];
   actLog(`Блок ${blockNum} Act ${actNum} (${block.name}) → ${action} на ${duration}мс [Mega #${block.mega}]`, 'info');

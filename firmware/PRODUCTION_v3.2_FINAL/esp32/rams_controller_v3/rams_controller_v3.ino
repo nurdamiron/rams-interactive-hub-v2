@@ -591,7 +591,15 @@ void setup() {
       return;
     }
 
-    if (duration <= 0) duration = DEFAULT_DURATION_MS;
+    if (duration <= 0) {
+      if (action == "UP") {
+        duration = 4000;
+      } else if (action == "DOWN") {
+        duration = 5000;
+      } else {
+        duration = DEFAULT_DURATION_MS;
+      }
+    }
 
     // Лимит активных блоков
     if ((action == "UP" || action == "DOWN") && activeBlocksCount >= MAX_ACTIVE_BLOCKS && !blockStates[blockNum].isActive) {
@@ -670,7 +678,15 @@ void setup() {
       server.send(400, "text/plain", "ERROR:Invalid actuator index (1-3)");
       return;
     }
-    if (duration <= 0) duration = DEFAULT_DURATION_MS;
+    if (duration <= 0) {
+      if (action == "UP") {
+        duration = 4000;
+      } else if (action == "DOWN") {
+        duration = 5000;
+      } else {
+        duration = DEFAULT_DURATION_MS;
+      }
+    }
 
     // Формат команды: ACTUATOR:3:2:UP:4000
     String cmd = "ACTUATOR:" + String(blockNum) + ":" + String(actNum) + ":" + action + ":" + String(duration);
