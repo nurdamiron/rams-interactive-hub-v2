@@ -534,8 +534,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                             setHwLedMode("AUTO");
                             await hardwareService.setLedMode("AUTO");
                           } else {
-                            // Stop auto-cycle by sending AUTO again (toggle)
-                            await hardwareService.setLedMode("AUTO");
+                            setHwLedMode("WAVE");
+                            await hardwareService.setLedMode("WAVE");
                           }
                         }}
                         className={`col-span-3 px-3 py-3 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 ${

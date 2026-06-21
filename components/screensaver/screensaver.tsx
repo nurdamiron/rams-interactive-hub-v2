@@ -104,9 +104,7 @@ export const Screensaver: React.FC<ScreensaverProps> = ({
   React.useEffect(() => {
     if (isActive) {
       hardwareService.resetAll();
-      hardwareService.setLedMode("RAINBOW"); // Rainbow = Wave + smooth color cycling
-    } else {
-      hardwareService.setLedMode("WAVE");
+      hardwareService.setLedMode("AUTO"); // Enable native ESP32 autoplay on idle
     }
   }, [isActive]);
 

@@ -1220,18 +1220,11 @@ app.whenReady().then(() => {
     // Handle AUTO mode — use ESP32's native auto mode (cycles colors + effects)
     if (upperMode === 'AUTO') {
       stopLedAutoCycle();
-      if (esp32AutoModeActive) {
-        esp32AutoModeActive = false;
-        log('[LED] Disabling native ESP32 autoplay (switching to Wave static)');
-        await sendHttpRequest('/api/effect', { id: 3 }); // Wave as fallback, disables autoMode
-        return { autoCycle: false };
-      } else {
-        esp32AutoModeActive = true;
-        log('[LED] Enabling native ESP32 autoplay (cycling effects + 5 custom colors)');
-        await sendHttpRequest('/api/bri', { v: 200 });
-        await sendHttpRequest('/api/auto');
-        return { autoCycle: true };
-      }
+      esp32AutoModeActive = true;
+      log('[LED] Enabling native ESP32 autoplay (cycling effects + 5 custom colors)');
+      await sendHttpRequest('/api/bri', { v: 200 });
+      await sendHttpRequest('/api/auto');
+      return { autoCycle: true };
     }
 
     // Handle RAINBOW mode (manual)
