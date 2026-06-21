@@ -1193,7 +1193,7 @@ app.whenReady().then(() => {
     ledRainbowTimer = setInterval(() => {
       ledRainbowHue = (ledRainbowHue + 3) % 360;
       const [r, g, b] = hslToRgb(ledRainbowHue, 100, 50);
-      sendHttpRequest('/api/color', { r, g, b }).catch(() => {});
+      sendHttpRequest('/api/color', { r, g, b, manual: 1 }).catch(() => {});
     }, 150);
   }
 
@@ -1233,7 +1233,7 @@ app.whenReady().then(() => {
       stopLedAutoCycle();
       log('[LED] Rainbow mode — wave + color cycling');
       await sendHttpRequest('/api/bri', { v: 200 });
-      await sendHttpRequest('/api/effect', { id: 3 });
+      await sendHttpRequest('/api/effect', { id: 3, manual: 1 });
       startRainbowCycle();
       return true;
     }
@@ -1252,14 +1252,14 @@ app.whenReady().then(() => {
     if (typeof fwId === 'number') {
       log(`[LED] Mode "${mode}" → FW effect ID ${fwId}`);
       await sendHttpRequest('/api/bri', { v: 200 });
-      return await sendHttpRequest('/api/effect', { id: fwId });
+      return await sendHttpRequest('/api/effect', { id: fwId, manual: 1 });
     }
     return false;
   });
 
   // Direct effect ID (used by actuator-control panel) — sends firmware ID as-is
   ipcMain.handle('hardware-led-effect', async (_event, effectId, speed) => {
-    const params = { id: effectId };
+    const params = { id: effectId, manual: 1 };
     if (speed !== undefined && speed !== null) params.speed = speed;
     log(`[LED] Effect FW:${effectId}${speed !== undefined ? ` speed=${speed}` : ''}`);
     esp32AutoModeActive = false;
@@ -1279,7 +1279,7 @@ app.whenReady().then(() => {
     const g = parseInt(hex.substring(2, 4), 16) || 0;
     const b = parseInt(hex.substring(4, 6), 16) || 0;
     log(`[LED] Color #${hex} → RGB(${r}, ${g}, ${b})`);
-    return sendHttpRequest('/api/color', { r, g, b });
+    return sendHttpRequest('/api/color', { r, g, b, manual: 1 });
   });
 
   ipcMain.handle('hardware-led-brightness', async (_event, brightness) => {
@@ -1319,7 +1319,7 @@ app.whenReady().then(() => {
     if (cmd.startsWith('LED:MODE:')) {
       const modeToFwId = { 'STATIC': 2, 'PULSE': 1, 'RAINBOW': 0, 'CHASE': 3, 'SPARKLE': 5, 'WAVE': 3, 'FIRE': 6, 'METEOR': 7, 'OFF': 4 };
       const fwId = modeToFwId[cmd.split(':')[2].toUpperCase()];
-      if (fwId !== undefined) return sendHttpRequest('/api/effect', { id: fwId });
+      if (fwId !== undefined) return sendHttpRequest('/api/effect', { id: fwId, manual: 1 });
       return false;
     }
     if (cmd.startsWith('LED:COLOR:')) {
@@ -1327,7 +1327,7 @@ app.whenReady().then(() => {
       const r = parseInt(hex.substring(0, 2), 16) || 0;
       const g = parseInt(hex.substring(2, 4), 16) || 0;
       const b = parseInt(hex.substring(4, 6), 16) || 0;
-      return sendHttpRequest('/api/color', { r, g, b });
+      return sendHttpRequest('/api/color', { r, g, b, manual: 1 });
     }
     if (cmd.startsWith('LED:BRIGHTNESS:')) {
       return sendHttpRequest('/api/bri', { v: cmd.split(':')[2] });

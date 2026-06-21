@@ -738,6 +738,22 @@ void setup() {
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
 
+    if (server.method() == HTTP_OPTIONS) {
+      server.send(204);
+      return;
+    }
+
+    // Если мы в авторежиме и нет явного флага ручного управления, игнорируем
+    if (autoMode && !server.hasArg("manual")) {
+      server.send(200, "text/plain", "IGNORED: In AutoMode");
+      return;
+    }
+
+    if (!server.hasArg("r") || !server.hasArg("g") || !server.hasArg("b")) {
+      server.send(400, "text/plain", "ERROR: r, g, b are required");
+      return;
+    }
+
     // Получить RGB параметры из query string
     int r = server.arg("r").toInt();
     int g = server.arg("g").toInt();
@@ -815,6 +831,17 @@ void setup() {
     server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
 
+    if (server.method() == HTTP_OPTIONS) {
+      server.send(204);
+      return;
+    }
+
+    // Если мы в авторежиме и нет явного флага ручного управления, игнорируем
+    if (autoMode && !server.hasArg("manual")) {
+      server.send(200, "text/plain", "IGNORED: In AutoMode");
+      return;
+    }
+
     // Получить ID эффекта и скорость (поддерживаем id/v и speed/spd)
     int id = server.hasArg("id") ? server.arg("id").toInt() : (server.hasArg("v") ? server.arg("v").toInt() : 0);
     int speed = server.hasArg("speed") ? server.arg("speed").toInt() : (server.hasArg("spd") ? server.arg("spd").toInt() : -1);
@@ -828,6 +855,7 @@ void setup() {
     }
 
     // Обновить эффект
+    gFx = id;
     testMode = false;  // Выходим из тест-режима
     autoMode = false;  // Отключаем авторежим при ручном выборе эффекта
 

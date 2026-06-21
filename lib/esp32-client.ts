@@ -136,7 +136,7 @@ export class ESP32Client {
    * Установить цвет LED
    */
   async setLEDColor(r: number, g: number, b: number): Promise<void> {
-    const url = `/api/color?r=${r}&g=${g}&b=${b}`;
+    const url = `/api/color?r=${r}&g=${g}&b=${b}&manual=1`;
     console.log(`[ESP32Client] POST ${this.baseUrl}${url} (RGB: ${r},${g},${b})`);
     const response = await this.fetchWithRetry(url, { method: "POST" });
     if (!response.ok) {
@@ -182,7 +182,7 @@ export class ESP32Client {
   async setLEDEffect(effectId: number, speed?: number): Promise<void> {
     // Send firmware ID directly (no mapping needed for v3.2)
     const speedParam = speed !== undefined ? `&speed=${speed}` : "";
-    const url = `/api/effect?id=${effectId}${speedParam}`;
+    const url = `/api/effect?id=${effectId}${speedParam}&manual=1`;
     console.log(`[ESP32Client] 🎨 POST ${this.baseUrl}${url} (FW:${effectId})`);
 
     const startTime = Date.now();
