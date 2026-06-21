@@ -20,7 +20,8 @@
     "electron:build:win": "npm run prebuild:icon && next build && electron-builder --win",
     "electron:build:mac": "next build && electron-builder --mac",
     "electron:build:all": "npm run prebuild:icon && next build && electron-builder --win --mac",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check-mega": "python3 scripts/check-mega.py"
   },
   "build": {
     "appId": "com.rams.interactivehub",
